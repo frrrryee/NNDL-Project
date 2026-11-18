@@ -15,19 +15,19 @@ pip install lpips     # 可选，3.6 的 LPIPS 指标需要；缺失时脚本会
 数据根目录由环境变量控制，所有成员一致：
 
 ```powershell
-$env:NNDL_DATA_ROOT = 'C:\Users\qth02\Desktop\nndl_pacs\data'
+$env:NNDL_DATA_ROOT = '<path>\to\data'
 ```
 
-对应的 `config.py`：
+不设置时默认用 `<repo>/data`。所有路径统一由仓库根目录的 `paths.py` 解析（`config.py` 只是转发），细节见 [`../ENVIRONMENT.md`](../ENVIRONMENT.md)。对应的 `config.py`：
 
 ```python
-DATA_ROOT   = Path(os.environ.get("NNDL_DATA_ROOT", PROJECT_ROOT / "data"))
-IMAGE_ROOT  = DATA_ROOT / "PACS"      # 原始图片
-AUG_ROOT    = DATA_ROOT / "augmented"  # 风格化图片（成员2/3 产出）
-OUTPUT_ROOT = Path(os.environ.get("NNDL_RUNS_ROOT", PROJECT_ROOT / "runs"))
+DATA_ROOT   = paths.DATA_ROOT        # <repo>/data 或 $NNDL_DATA_ROOT
+IMAGE_ROOT  = DATA_ROOT / "PACS"     # 原始图片
+AUG_ROOT    = DATA_ROOT / "augmented" # 风格化图片（成员2/3 产出）
+OUTPUT_ROOT = paths.RUNS_ROOT        # <repo>/../runs 或 $NNDL_RUNS_ROOT
 ```
 
-运行结果（checkpoint、summary）默认写到仓库根目录的 `runs/`，该目录已在 `.gitignore` 中排除，不会被提交。
+运行结果（checkpoint、summary）默认写到仓库根目录的 `runs/`，该目录已在 `.gitignore` 中排除，不会被提交。已产出的结果 JSON 汇总在仓库根目录的 `results/`。
 
 ## 1. 文件清单
 
@@ -86,7 +86,7 @@ OUTPUT_ROOT = Path(os.environ.get("NNDL_RUNS_ROOT", PROJECT_ROOT / "runs"))
 
 ```powershell
 $env:NNDL_SUBSET = '150'    # 每个实验组用 150 张原图
-$env:NNDL_RUNS_ROOT = 'C:\Users\qth02\Desktop\NNDL-Project\runs_smoke'
+$env:NNDL_RUNS_ROOT = '<path>\to\runs_smoke'
 ```
 
 `NNDL_SUBSET` 做三件事，且三组完全一致：
@@ -103,8 +103,8 @@ $env:NNDL_RUNS_ROOT = 'C:\Users\qth02\Desktop\NNDL-Project\runs_smoke'
 
 ```powershell
 # 0) 环境（nn.ps1 会自动挑一个能跑 CUDA 的解释器）
-cd C:\Users\qth02\Desktop\NNDL-Project\repo
-$env:NNDL_DATA_ROOT = 'C:\Users\qth02\Desktop\nndl_pacs\data'
+cd <repo>
+$env:NNDL_DATA_ROOT = '<path>\to\data'
 
 # 1) 生成 150 张 Ours + 匹配的 AdaIN 对照（--balanced 保证类别均衡）
 python -m member3_structure_preserving.generate build --limit 150 --balanced `

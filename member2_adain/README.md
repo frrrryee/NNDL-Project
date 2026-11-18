@@ -90,7 +90,7 @@ image = stylize(content, style, alpha)
 
 ```powershell
 # 从仓库根目录运行；NNDL_DATA_ROOT 指向 PACS 的父目录
-$env:NNDL_DATA_ROOT = 'C:\Users\qth02\Desktop\nndl_pacs\data'
+$env:NNDL_DATA_ROOT = '<path>\to\data'
 python -m member2_adain.build_adain_aug
 ```
 
