@@ -1,0 +1,14 @@
+{
+  "manifest": "aug_sp/manifest_adain_matched.txt",
+  "lpips": {
+    "mean": 0.2191182565167712,
+    "std": 0.0796264339038627,
+    "n": 1349
+  },
+  "edge_consistency": {
+    "mean": 0.346683364498224,
+    "std": 0.06023531905360017,
+    "n": 1349
+  },
+  "lpips_available": true
+}
