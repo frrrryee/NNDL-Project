@@ -1,0 +1,61 @@
+% Member 4 - final report, III.A Problem Formulation and Notation
+\subsection{Problem Formulation and Notation}
+\label{sec:notation}
+
+We study single-source domain generalization. The labelled data comes from
+one source domain, $D_s$, and the model is evaluated on target domains
+$D_t$ that are never seen during training. In our setting $D_s$ is the
+Photo domain of PACS, and the three targets are Art Painting, Cartoon and
+Sketch. A training image $x \in D_s$ carries a label $y$ from a set of
+seven object classes, and a classifier $f_\theta$ must predict $y$ for an
+image from any of the four domains.
+
+Style augmentation adds to $D_s$ a set of generated images. For each
+training image $x$ and a style reference $s$ drawn from a frozen pool of
+external paintings, a generator produces a stylised image $g(x, s)$. The
+augmented training set is
+\begin{equation}
+D_s^{\mathrm{aug}} = D_s \;\cup\; \{ g(x, \sigma(x)) : x \in D_s \},
+\label{eq:augset}
+\end{equation}
+where $\sigma$ is a fixed assignment of a style reference to each content
+image, chosen once and frozen. The pairing $\sigma$ is not arbitrary: it is
+drawn so that every style in the pool is used, and so that the assignment
+does not correlate the style with the class. Both properties are checked
+mechanically by the fairness checker before any model is trained
+(Section~\ref{sec:fairness}).
+
+The stylised image is not an arbitrary function of $(x, s)$. It is produced
+by a feature-level blend of the two images, and the blend is governed by a
+\emph{strength field} $\alpha(x, s) \in [0,1]^{H \times W}$, defined on the
+spatial grid of the feature map. Writing $F_c$ for the content feature map
+and $F_s$ for the style feature map, the generator computes
+\begin{equation}
+F = \alpha(x,s) \odot \mathrm{AdaIN}(F_c, F_s) + \bigl(1 - \alpha(x,s)\bigr) \odot F_c ,
+\label{eq:blend}
+\end{equation}
+and decodes $F$ into the output image. Equation~\eqref{eq:blend} is the
+single point at which our method and the AdaIN baseline differ: the
+baseline uses a constant $\alpha$, ours uses a field.
+
+This formulation makes the two quantities the study separates explicit.
+The \emph{mean strength} of a configuration is
+\begin{equation}
+\bar{\alpha} = \mathbb{E}_{x}\left[\frac{1}{HW}\sum_{h,w} \alpha(x,s)(h,w)\right],
+\label{eq:meanstrength}
+\end{equation}
+and the \emph{spatial distribution} is everything about $\alpha(x,s)$ beyond
+its mean. Equation~\eqref{eq:meanstrength} is the quantity that turns out
+to predict the accuracy: in our experiments the cross-domain accuracy is a
+function of $\bar{\alpha}$ across configurations, and the spatial
+distribution of the strength is not measurably influential once $\bar{\alpha}$
+is held fixed (Section~\ref{sec:strength_relation}). Reporting $\bar{\alpha}$
+for every configuration is therefore a precondition for the comparisons in
+this paper to be interpretable, and we report it for each one.
+
+Two degenerate cases of $\alpha$ anchor the design. $\alpha \equiv 0$ gives
+the encoder--decoder reconstruction without any style. $\alpha \equiv c$ for
+a constant $c$ gives plain AdaIN at strength $c$. Our method occupies the
+space between them, and the experiments are designed so that each point of
+that space can be compared with a uniform alternative of exactly the same
+mean strength.

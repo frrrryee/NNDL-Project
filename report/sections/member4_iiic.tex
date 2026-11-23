@@ -1,0 +1,67 @@
+% Member 4 - final report, III.C Structure-Preserving Style Augmentation
+\subsection{Structure-Preserving Style Augmentation}
+\label{sec:structure_method}
+
+Our method changes one thing relative to AdaIN: the constant strength in
+Equation~\eqref{eq:blend} becomes a field that depends on the local
+structure of the content image. This section describes how that field is
+computed.
+
+\paragraph{The structure map.}
+Let $M(x) \in [0,1]^{H \times W}$ be a soft structural response of the
+content image $x$. It is computed with classical image processing, with no
+learned segmentation model and no target-domain information of any kind.
+The content image is converted to greyscale and blurred with a Gaussian of
+$\sigma = 1$; the horizontal and vertical Sobel responses are combined into
+a gradient magnitude $G$\cite{opencv_sobel}. To make the response comparable across images, it
+is normalised by the 95th percentile of $G$ over the image and clipped to
+$[0,1]$; when that percentile is zero the maximum is used instead, and a
+constant image yields an all-zero map. The normalised response is then
+dilated with a $3\times3$ max-pooling and smoothed with a Gaussian of
+$\sigma = 2$, which widens thin contours and makes the resulting field
+smooth enough to be used as a blending weight. The result is $M \in [0,1]$
+with $M \approx 1$ at strong contours and $M \approx 0$ in flat regions.
+
+\paragraph{The strength field.}
+The field itself is a linear function of $M$:
+\begin{equation}
+\alpha(x)(h,w) = \alpha_0 \bigl(1 - \beta\, M(x)(h,w)\bigr),
+\label{eq:alphamap}
+\end{equation}
+with $\alpha_0 \in [0,1]$ the maximum strength and $\beta \in [0,1]$ the
+modulation depth. Where the structure is strong the strength falls towards
+$\alpha_0(1-\beta)$; where it is weak the strength is $\alpha_0$. Two
+boundary cases make the design easy to reason about. At $\beta = 0$ the
+field is constant and Equation~\eqref{eq:blend} reduces exactly to AdaIN at
+strength $\alpha_0$: the baseline is a special case of the method, not a
+separate implementation. At $\alpha_0 = 0$ the output is the
+encoder--decoder reconstruction.
+
+\paragraph{Why the field is not a segmentation.}
+$M$ is an edge response, not a foreground mask. Backgrounds have edges
+too, and they are protected as well; conversely, a region with weak texture
+inside the object receives the full strength. This is a deliberate choice.
+A learned segmentation would be a stronger prior, but it would introduce a
+model whose own errors would have to be controlled, and it would risk
+leaking information about the classes. The edge response has neither
+problem, and Section~\ref{sec:strength_relation} shows what it costs: the
+spatial structure of the field turns out not to matter for the accuracy.
+
+\paragraph{Resolution and its consequences.}
+The field is computed at the resolution of the content image and then
+area-averaged down to the resolution of the $\texttt{relu4\_1}$ feature map
+on which the blend is performed, so that one weight corresponds to one
+feature location. The average is an area average, not a subsampling, so the
+mean of the field over the feature grid is preserved. This is what makes the
+comparison of mean strengths exact and not merely approximate, and it is
+why $\bar{\alpha}$ of Equation~\eqref{eq:meanstrength} can be computed and
+reported for every configuration.
+
+\paragraph{Implementation.}
+The generator reuses the pretrained AdaIN encoder--decoder without any
+training: the same network, the same weights, the same preprocessing (the
+content image is resized so that its short side is 512, preserving the
+aspect ratio). Only the blending rule differs. All the content--style
+pairs, the image sizes, the file format and the JPEG quality are identical
+across every configuration, so that the only variable between an
+experimental group and its control is the rule that computes $\alpha$.

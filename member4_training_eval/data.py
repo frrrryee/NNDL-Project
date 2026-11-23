@@ -86,7 +86,7 @@ def load_train_rows(group, aug_manifest=None):
             raise ValueError(f"group '{group}' requires an augmentation manifest")
         for rel, label, meta in read_aug_manifest(aug_manifest):
             augmented.append((rel, label, meta[0] if meta else None))
-    elif group != "original":
+    elif group not in ("original", config.MIXSTYLE_GROUP):
         raise ValueError(f"unknown group: {group}")
 
     if config.SUBSET_SIZE:

@@ -1,0 +1,32 @@
+% Member 4 - final report, III.G Experimental Design and Fair Comparison
+\subsection{Experimental Design and Fair Comparison}
+\label{sec:exp_design}
+
+The design of this study is driven by one requirement: a reported difference must be attributable to exactly one factor. Every control below exists because two factors would otherwise move together.
+
+\textit{Step-budgeted training.} All groups receive the same number of optimizer steps, $S = 660$, which is 30 passes over the 1{,}349-image Original training set at batch size 64. Groups with a larger training set therefore make fewer passes over their data. This makes the comparison a comparison of \emph{datasets under an equal optimization budget} rather than of datasets of equal length, which is the question we are asking.
+
+\textit{No checkpoint selection.} The reported model is the final checkpoint of the fixed step budget, for every group and every seed. We measured the alternative --- selecting the checkpoint with the best Photo Validation accuracy --- and found it harmful: the validation set holds 150 images and its accuracy saturates at 97--98\% within 60 steps, so the selection picks noise. It inflates the seed-to-seed spread of the cross-domain accuracy from 2.71 to 7.22 points. Removing the selection step also removes a source of bias towards whichever group happens to reach a high validation score early.
+
+\textit{Verified fairness.} Before any run is accepted, a checker verifies mechanically that the compared groups differ only in their training images:
+\label{sec:fairness}
+
+\begin{itemize}
+\item \textit{Same original data.} Every manifest covers exactly the 1{,}349 Photo Training images, once each.
+\item \textit{Same style pool.} The style references come from one frozen pool of ten external paintings, fixed with a content-hash manifest before the first training run. The pool is disjoint from PACS by construction, and the checker re-verifies this by comparing every style image's hash against the whole local PACS copy --- Art Painting, Cartoon, and Sketch are the evaluation domains, so a style image taken from them would place the test appearance into the training set.
+\item \textit{Same augmentation count.} Each augmented group adds exactly one image per original training image.
+\item \textit{Same content--style pairing.} The pairing between content image and style image is drawn once with a fixed seed and reused by every generator, so the only difference between two styled datasets is the stylization algorithm itself.
+\item \textit{Same training configuration.} A fingerprint of the behaviourally relevant configuration (batch size, step budget, learning rate, momentum, weight decay, label smoothing, evaluation cadence, the transform definitions, the architecture, and the pretraining) is recomputed from the full configuration recorded in each run summary, and a run whose fingerprint differs is rejected rather than compared.
+\item \textit{Defining property of the controls.} For +Duplicate, every added image is verified byte-identical to its original; for +NonStyle, every added image is verified to differ from its original. Without these two checks the controls could silently become identical groups and the decomposition would collapse.
+\end{itemize}
+
+\textit{Why a strength control is necessary.} The spatial strength map is $\alpha(x,y) = \alpha_0(1-\beta M)$, so wherever the structural response $M$ is large the applied strength is necessarily below $\alpha_0$. The spatial map therefore always carries \emph{less} total style than a uniform AdaIN at the same $\alpha_0$: at the main setting ($\alpha_0 = 0.5$, $\beta = 0.7$) its mean is $0.374$, against $0.500$ for the uniform mix. A direct comparison of +AdaIN against +Ours consequently changes two things at once --- the spatial modulation and the overall style strength --- and a difference in accuracy cannot be attributed to either. We resolve this with two controls, both trained under the identical protocol:
+
+\begin{itemize}
+\item \textit{Strength-matched uniform AdaIN.} A plain uniform AdaIN whose strength is, for each image individually, the mean of that image's spatial $\alpha$ map. It carries the same total style energy as the spatial map and differs from it only in that the strength is not modulated in space.
+\item \textit{Equal-strength spatial map.} The $\alpha_0$ is recalibrated so that the spatial map's mean is exactly $0.500$, matching uniform AdaIN at $\alpha = 0.5$: with $\beta = 0.7$ and $\overline{M} = 0.361$ this requires $\alpha_0 = 0.500/(1-0.7\times0.361) = 0.6692$. Here +Ours and +AdaIN differ in the spatial modulation and in nothing else.
+\end{itemize}
+
+\textit{Statistical treatment.} All groups are run with the same seeds, so the design is \emph{paired}, and all comparisons are paired. We report the paired mean difference, the 95\% confidence interval of that difference, the paired $t$ statistic and its two-sided $p$ value, a percentile-bootstrap confidence interval, and the paired Cohen's $d$. Because many pairs are compared at once, the $p$ values are corrected with the Benjamini--Hochberg procedure for a false discovery rate of 5\%. A difference that does not reach significance is reported as inconclusive rather than as an improvement.
+
+\textit{Prohibited uses of the target domains.} The Art Painting, Cartoon, and Sketch images are used for the final evaluation and for nothing else. They never enter training, never select a checkpoint, never select a hyper-parameter, and never enter the style pool. The parameter grids were fixed in advance: $\alpha \in \{0.25, 0.5, 0.75, 1.0\}$ and $\beta \in \{0, 0.3, 0.5, 0.7, 1.0\}$.

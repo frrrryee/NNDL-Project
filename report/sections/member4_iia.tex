@@ -1,0 +1,37 @@
+% Member 4 - final report, I.A Problem Statement and Research Questions
+\subsection{Problem Statement and Research Questions}
+\label{sec:problem}
+
+A photograph of a dog and a sketch of a dog share the label \texttt{dog}, yet they offer a viewer very different clues. In the photo, fur texture, colour, and lighting do most of the work. In the sketch, nearly all of that is gone, and the shape of the ears, the outline of the head, and the proportions of the body carry the identification. A classifier that has learned to lean on photographic texture is therefore lost when it meets a sketch of the very same animal. This mismatch between the appearance of the training data and that of the test data is the \textit{domain shift} that domain generalization sets out to address~\cite{zhou2023dgsurvey}. The texture bias of image classifiers is well documented~\cite{geirhos2019imagenet}: models trained on photographic data prefer the cue that the photographs provide, and the photographs are the wrong cue at test time.
+
+Style augmentation is a natural response: take the labelled photographs and restyle them, so that the training set contains appearances closer to the target domains. The approach is simple and it is known to work. It is also, as we show in this paper, understood less well than it appears. When a styled training set improves cross-domain accuracy, at least four different things could have caused the improvement:
+
+\begin{enumerate}
+\item \textit{the number of training rows doubled}, so the model saw twice as many samples;
+\item \textit{generic appearance diversity}, i.e.\ the mere fact that the pixels changed, which any colour jitter or blur would also achieve;
+\item \textit{the style itself}, i.e.\ the specific transfer of an external painting's statistics onto the content;
+\item \textit{the spatial distribution} of the style strength, i.e.\ the possibility of applying more style in flat regions and less where the content's structure matters.
+\end{enumerate}
+
+Published comparisons of style augmentation do not separate these factors. The training set usually grows along with the styling, so a headline gain cannot be attributed to the style, and a method that additionally modulates the strength in space is credited with the whole effect.
+
+\noindent\textbf{Research questions.} We answer four questions with controlled experiments on PACS.
+
+\textit{RQ1 (attribution).} How much of the gain of style augmentation is attributable to the data volume, to a generic appearance change, and to the style itself?
+
+\textit{RQ2 (spatial structure).} Does modulating the style strength in space according to image structure improve cross-domain recognition over a uniform application of the same average strength?
+
+\textit{RQ3 (dose--response).} How does cross-domain accuracy depend on the amount of style that is applied, and is that dependence explained by the strength or by its distribution?
+
+\textit{RQ4 (robustness).} Is the effect stable across the choice of style pool, and how does it compare with a published feature-space domain-generalization method that pursues the same idea in a different place?
+
+\noindent\textbf{Contributions.} Our contribution is not a new augmentation method but a controlled measurement of what the existing one buys. The four contributions, each backed by one controlled experiment, are:
+
+\begin{itemize}
+\item \textit{A decomposition of the headline gain} (Table~\ref{tab:decomposition}). Two data-volume controls --- a byte-identical duplicate and a non-stylistic transform --- separate the data-volume effect, the generic-appearance effect, and the style effect, and they show that the style effect is the only one of the three that survives.
+\item \textit{A strength-matched control that makes the spatial question answerable} (Section~\ref{sec:exp_design}). Because a spatial alpha map necessarily applies less total style than a uniform mix at the same nominal strength, two additional controls were trained so that the two mechanisms can be compared at an equal dose. Under this control the spatial modulation contributes nothing measurable.
+\item \textit{A dose--response curve over the style strength} (Fig.~\ref{fig:strength_curve}) that shows the accuracy to be governed by the average strength rather than by its spatial distribution.
+\item \textit{A robustness check} over the style pool and a comparison with MixStyle, a published feature-space method that attacks the same problem in a different place.
+\end{itemize}
+
+The overall conclusion is a negative one, and we state it plainly: style augmentation helps substantially on PACS, but the part of the gain that survives careful control is the *style*, not the *spatial structure preservation* that motivated the method, and the reported benefit of spatially adaptive stylization is not supported by these experiments.

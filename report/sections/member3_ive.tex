@@ -1,0 +1,46 @@
+% Member 3 - final report, IV.E Per-Class Analysis
+\subsection{Per-Class Analysis}
+\label{sec:per_class}
+
+The cross-domain average hides a great deal: two groups with the same
+average can distribute their accuracy over the seven classes very
+differently. Figure~\ref{fig:per_class} gives the per-class breakdown of
+the main groups, and it shows where the styled groups actually win.
+
+\paragraph{Where the gain comes from.}
+The gain over the Original group is concentrated in the classes whose
+identity depends on a shape rather than on a texture. \texttt{guitar} is
+the clearest case: its outline --- the body, the neck, the strings --- is
+what identifies it in a painting or a cartoon, and it is precisely that
+outline that the stylisation threatens. \texttt{horse} and \texttt{dog}
+behave similarly. The classes whose appearance is dominated by a uniform
+texture move much less, because there is less shape to lose.
+
+\paragraph{The classes that do not improve.}
+\texttt{person} is the exception and deserves to be named. Its accuracy
+under the styled groups is close to the Original group's and is the most
+unstable across seeds. A person is defined by proportions and clothing
+rather than by a compact contour, so the structure map has little to
+protect: the \texttt{person} images have the lowest edge density of the
+seven classes, and a modulation that is nearly uniform in effect
+(Section~\ref{sec:mechanism}) cannot help them. The consistent
+underperformance on \texttt{person} is also the main source of variance in
+the cross-domain average, which is why the per-class view is necessary for
+reading the aggregate at all.
+
+\paragraph{The seed-level instability.}
+The per-class numbers also expose a seed-level effect that the averages
+hide. The styled groups' cross-domain average varies by one to two points
+across the five seeds, but the variation is not spread evenly over the
+classes: it is concentrated in \texttt{person} and \texttt{horse}. The
+classes whose accuracy is stable across seeds are the ones whose
+appearance is stable, which is consistent with the styled data being
+informative but not sufficient on its own.
+
+\paragraph{What the per-class view does not change.}
+The per-class analysis does not overturn the aggregate conclusion. The
+gains it shows are gains of the styled groups over the Original group, and
+they are the same gains that the strength-matched control also obtains. The
+styled and the matched uniform groups agree class by class as well as on
+average, which is further evidence that the differences are driven by the
+amount of style and not by its spatial arrangement.

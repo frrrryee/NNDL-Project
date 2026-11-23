@@ -76,6 +76,15 @@ SPLIT_DIR = REPO_ROOT / "member4_training_eval" / "project_splits"
 STYLE_POOL_DIR = REPO_ROOT / "member4_training_eval" / "style_pool"
 STYLE_POOL_IMAGES = STYLE_POOL_DIR / "images"
 
+#: The style-pool manifest that the generators and the checkers read.  It is
+#: the frozen ten-painting pool by default; the ``NNDL_STYLE_POOL``
+#: environment variable points the whole pipeline at one of the half-pools
+#: of the sensitivity experiment, without any code change.
+STYLE_POOL_MANIFEST = Path(
+    os.environ.get("NNDL_STYLE_POOL")
+    or (STYLE_POOL_DIR / "style_pool.json")
+).resolve()
+
 #: Where the LaTeX sources and figures live.
 REPORT_DIR = REPO_ROOT / "report"
 

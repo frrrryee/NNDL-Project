@@ -40,7 +40,10 @@ SPLIT_DIR = paths.SPLIT_DIR
 OUTPUT_ROOT = paths.RUNS_ROOT
 STYLE_POOL_DIR = paths.STYLE_POOL_DIR
 STYLE_POOL_IMAGES = paths.STYLE_POOL_IMAGES
-STYLE_POOL_MANIFEST = STYLE_POOL_DIR / "style_pool.json"
+# The manifest of the active style pool.  It is the frozen ten-painting
+# pool by default; the ``NNDL_STYLE_POOL`` environment variable points the
+# whole pipeline at one of the half-pools of the sensitivity experiment.
+STYLE_POOL_MANIFEST = paths.STYLE_POOL_MANIFEST
 AUG_ROOT = DATA_ROOT / "augmented"       # stylized images written by members 2/3
 
 # ------------------------------------------------------------- protocol ----
@@ -48,15 +51,38 @@ AUG_ROOT = DATA_ROOT / "augmented"       # stylized images written by members 2/
 # horse=4, house=5, person=6.  verify_splits.py enforces folder/label
 # consistency, so an order change here fails loud.
 CLASSES = ("dog", "elephant", "giraffe", "guitar", "horse", "house", "person")
-# The four experimental groups.  ``adain_matched`` is the strength-matched
+# The experimental groups.  ``adain_matched`` is the strength-matched
 # uniform AdaIN control: it receives exactly the same average stylization
 # strength as the spatial map of ``ours``, so that a comparison between
 # ``ours`` and ``adain_matched`` isolates the effect of the *spatial*
 # modulation from the effect of the overall style strength.
-GROUPS = ("original", "adain", "adain_matched", "ours")
-# Groups whose training set is the original Photo images plus one stylized
-# image per original, taken from that group's augmentation manifest.
-AUGMENTED_GROUPS = ("adain", "adain_matched", "ours")
+#
+# ``duplicate`` and ``nonstyle`` are the two data-volume controls.  Both
+# have exactly the same training-set *shape* as ``adain`` (1,349 originals
+# plus 1,349 manifest rows) but differ in what the second copy contains:
+# ``duplicate`` is a byte-identical copy, ``nonstyle`` is a generic
+# non-stylistic transform.  They separate "twice the rows" from "twice the
+# rows with a real appearance change" from "twice the rows with a style".
+GROUPS = ("original", "adain", "adain_matched", "ours", "ours_equal",
+          "duplicate", "nonstyle", "mixstyle")
+# Groups whose training set is the original Photo images plus one styled
+# (or controlled) image per original, taken from that group's manifest.
+AUGMENTED_GROUPS = ("adain", "adain_matched", "ours", "ours_equal",
+                    "duplicate", "nonstyle")# Groups whose manifest has no style image.  Their manifests carry the
+# placeholder ``none`` in the style column, so the fairness checker must not
+# compare them against the frozen style pool or the content-style pairing.
+NO_STYLE_GROUPS = ("duplicate", "nonstyle")
+# The manifest of every augmented group, relative to the data root.  The
+# sweep uses this table; ``run_all.py`` can still override it with
+# ``--aug-manifest``.
+GROUP_MANIFESTS = {
+    "adain": "aug_sp/manifest_adain.txt",
+    "adain_matched": "aug_sp/manifest_adain_matched.txt",
+    "ours": "aug_sp/manifest_ours.txt",
+    "ours_equal": "aug_sp/sweeps/sweep_full/a0p669215_b0p7/manifest_ours.txt",
+    "duplicate": "augmented/manifest_duplicate.txt",
+    "nonstyle": "augmented/manifest_nonstyle.txt",
+}
 SPLIT_FILES = {
     "photo_train": SPLIT_DIR / "photo_train.txt",
     "photo_val": SPLIT_DIR / "photo_val.txt",
@@ -70,7 +96,13 @@ SEEDS = (0, 1, 2)
 
 # ----------------------------------------------------------- optimization ---
 BATCH_SIZE = 64
-NUM_WORKERS = 4
+#: The number of DataLoader workers.  Each worker holds a copy of the
+#: training set in its own process, and the stylised images are large, so
+#: four workers of a stylised set need about a gigabyte of resident memory
+#: each.  The count is therefore an environment variable: on a machine with
+#: little RAM the batch can be run with fewer workers, which slows the
+#: loader down but keeps the machine alive.
+NUM_WORKERS = int(os.environ.get("NNDL_NUM_WORKERS", "4") or 4)
 # Same optimizer-step budget for every group: 30 nominal epochs over the
 # 1,349-image Original training set at batch size 64 (30 * ceil(1349/64)).
 ORIGINAL_EPOCHS = 30
@@ -93,6 +125,33 @@ EVAL_EVERY = 60            # photo-val evaluation cadence in optimizer steps
 # therefore use the final checkpoint of the fixed step budget: it introduces no
 # selection bias at all and is the protocol reported in Sections 3.3 and 3.7.
 CHECKPOINT = "last"        # "last" | "best"
+# Whether to keep ``best.pt`` next to ``last.pt``.  The reported checkpoint is
+# always the final one of the fixed step budget, so ``best.pt`` is never used
+# for selection -- it exists only as a reference.  Each checkpoint is 43 MB,
+# and the full experiment sweep produces dozens of runs, so it is off by
+# default and can be switched on per run.
+#
+# This flag is deliberately NOT part of ``config_hash()``: it does not change
+# a single number that is reported, only which extra file ends up on disk.
+SAVE_BEST_CHECKPOINT = bool(int(os.environ.get("NNDL_SAVE_BEST", "0") or 0))
+
+# ---------------------------------------------------------------- MixStyle ----
+# MixStyle is a real domain-generalisation baseline that mixes the instance
+# statistics of the feature maps.  It is the closest published method to
+# what this project does -- it removes the style of the input -- but it does
+# it in feature space instead of by generating images.
+#
+# It is OFF by default.  Switching it on changes the architecture, and an
+# architecture change must never be hidden inside the fingerprint of the
+# other groups: the MixStyle runs therefore carry the group name
+# ``mixstyle`` and a *separate* hash, computed by ``mixstyle_config_hash()``
+# below.  The main ``config_hash()`` stays ``ecc6090e5b29`` for every other
+# group, so the reported results keep their comparability.
+MIXSTYLE = bool(int(os.environ.get("NNDL_MIXSTYLE", "0") or 0))
+MIXSTYLE_P = float(os.environ.get("NNDL_MIXSTYLE_P", "0.5"))
+MIXSTYLE_ALPHA = float(os.environ.get("NNDL_MIXSTYLE_ALPHA", "0.1"))
+#: The group that carries the MixStyle baseline.
+MIXSTYLE_GROUP = "mixstyle"
 # Human-readable description of the checkpoint policy, recorded in every run
 # summary.  It must agree with CHECKPOINT: "last" means the final checkpoint
 # of the fixed step budget, with no validation-based selection.
@@ -188,11 +247,11 @@ def training_config() -> dict:
         "checkpoint": CHECKPOINT,
         "train_transform": repr(TRAIN_TRANSFORM),
         "eval_transform": repr(EVAL_TRANSFORM),
-        "arch": "resnet18",
-        "pretrained": "imagenet",
-        "checkpoint_selection": CHECKPOINT_SELECTION,
-        "subset_size": SUBSET_SIZE,
-    }
+    "arch": "resnet18",
+    "pretrained": "imagenet",
+    "checkpoint_selection": CHECKPOINT_SELECTION,
+    "subset_size": SUBSET_SIZE,
+}
 
 
 # The fields that decide what the trained model is.  This is an explicit
@@ -261,13 +320,47 @@ def config_hash() -> str:
     return config_hash_of(training_config())
 
 
-def canonical_hash_of_run(run_dir: Path) -> str | None:
-    """Recompute the canonical hash of a run directory, or None if unknown."""
+def mixstyle_config_hash() -> str:
+    """The fingerprint of a MixStyle run.
+
+    The MixStyle baseline changes the architecture, so it must not share
+    the fingerprint of the other groups: a table that put them side by side
+    would compare two different models under one protocol.  The hash is
+    derived from the main one plus the MixStyle parameters, so the two are
+    visibly related but cannot be confused.
+    """
+    payload = {
+        "base": config_hash(),
+        "mixstyle": True,
+        "mixstyle_p": MIXSTYLE_P,
+        "mixstyle_alpha": MIXSTYLE_ALPHA,
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def config_hash_for_group(group: str) -> str:
+    """The fingerprint that applies to a group."""
+    if group == MIXSTYLE_GROUP:
+        return mixstyle_config_hash()
+    return config_hash()
+
+
+def canonical_hash_of_run(run_dir: Path) -> None | str:
+    """Recompute the canonical hash of a run directory, or None if unknown.
+
+    The fingerprint depends on the *group*: the MixStyle baseline changes
+    the architecture and therefore has its own fingerprint.  The group is
+    read from the recorded summary, so a MixStyle run is compared against
+    the MixStyle hash and every other run against the main one.
+    """
     summary = Path(run_dir) / "train_summary.json"
     if not summary.is_file():
         return None
     payload = json.loads(summary.read_text(encoding="utf-8"))
+    group = payload.get("group")
     recorded = payload.get("training_config")
     if isinstance(recorded, dict):
         return config_hash_of(recorded)
+    if group is not None:
+        return config.config_hash_for_group(group)
     return payload.get("config_hash")

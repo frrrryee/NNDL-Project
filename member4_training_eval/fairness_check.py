@@ -32,8 +32,23 @@ import config
 from data import read_aug_manifest
 
 
-def check(manifests, subset=False):
-    """Verify every manifest in ``manifests`` (a list of (name, path) pairs)."""
+def check(manifests, subset=False, pool_path=None):
+    """Verify every manifest in ``manifests`` (a list of (name, path) pairs).
+
+    The control groups ``duplicate`` and ``nonstyle`` have no style image:
+    their manifests carry the placeholder ``none`` in the style column.
+    The checks that concern the style pool (2), the content-style pairing
+    (4) and the style-image leak (5) are therefore skipped for them, while
+    the checks that define what the controls are *for* -- the same original
+    images (1) and the same number of rows (3) -- are applied unchanged.
+
+    ``pool_path`` is the style pool the manifests are supposed to belong to.
+    It defaults to the frozen ten-painting pool.  The style-pool sensitivity
+    experiment trains with a *half* pool, whose pairing is deliberately
+    different from the frozen one, so the check has to be told which pool it
+    validates against -- otherwise the half-pool manifests would be rejected
+    for not matching the frozen pairing.
+    """
     problems = []
     loaded = {}
     for name, path in manifests:
@@ -43,6 +58,11 @@ def check(manifests, subset=False):
             problems.append(f"{name}: cannot read manifest ({exc})")
     if len(loaded) != len(manifests):
         return problems
+
+    # Split the manifests into the ones that carry a real style image and the
+    # ones that do not.
+    styled = [name for name in loaded if name not in config.NO_STYLE_GROUPS]
+    unstyled = [name for name in loaded if name in config.NO_STYLE_GROUPS]
 
     # 3. counts
     counts = {name: len(rows) for name, rows in loaded.items()}
@@ -71,35 +91,50 @@ def check(manifests, subset=False):
                 problems.append(f"{name}: original {orig} used {count}x != {config.AUG_PER_IMAGE}")
         provenance[name] = origs
 
-    # 2. same style pool
-    pool_path = config.STYLE_POOL_MANIFEST
-    pool = {}
-    if pool_path.is_file():
-        outer = json.loads(pool_path.read_text(encoding="utf-8"))
-        pool = outer.get("pool", {})
-    else:
-        problems.append(f"style pool manifest missing: {pool_path}")
-    for name, rows in loaded.items():
-        styles = {meta[1] for _, _, meta in rows if len(meta) > 1}
-        unknown = styles - set(pool.get("styles", {}))
-        if unknown:
-            problems.append(f"{name}: styles not in frozen pool: {sorted(unknown)[:5]}")
+    # The control groups must actually carry the placeholder in the style
+    # column, otherwise they would be compared against the style pool and
+    # the whole point of the relaxation would be lost.
+    for name in unstyled:
+        for rel, _label, meta in loaded[name]:
+            if len(meta) > 1 and meta[1] not in ("none", "-", ""):
+                problems.append(
+                    f"{name}: style column is {meta[1]!r}, expected the placeholder "
+                    f"'none' for a group without a style image")
+                break
 
-    # 4. same content-style pairing
+    # 2. same style pool (only for the groups that have one)
+    pool_path = Path(pool_path) if pool_path is not None else config.STYLE_POOL_MANIFEST
+    pool = {}
+    if styled:
+        if pool_path.is_file():
+            outer = json.loads(pool_path.read_text(encoding="utf-8"))
+            pool = outer.get("pool", {})
+        else:
+            problems.append(f"style pool manifest missing: {pool_path}")
+        for name in styled:
+            rows = loaded[name]
+            styles = {meta[1] for _, _, meta in rows if len(meta) > 1}
+            unknown = styles - set(pool.get("styles", {}))
+            if unknown:
+                problems.append(f"{name}: styles not in the active pool: {sorted(unknown)[:5]}")
+
+    # 4. same content-style pairing (only among the styled groups)
     def pairing(rows):
         return {meta[0]: meta[1] for _, _, meta in rows if len(meta) > 1}
 
-    reference_name, reference_rows = next(iter(loaded.items()))
-    reference_pairing = pairing(reference_rows)
-    for name, rows in loaded.items():
-        if pairing(rows) != reference_pairing:
-            problems.append(
-                f"content->style pairing differs between {reference_name} and {name}")
-    if pool and subset is False:
-        recorded = json.loads(pool_path.read_text(encoding="utf-8")).get("pairing", {})
-        if reference_pairing != recorded:
-            problems.append(
-                f"content->style pairing differs from the frozen pool pairing")
+    if styled:
+        reference_name = styled[0]
+        reference_pairing = pairing(loaded[reference_name])
+        for name in styled:
+            if pairing(loaded[name]) != reference_pairing:
+                problems.append(
+                    f"content->style pairing differs between {reference_name} and {name}")
+        if pool and subset is False:
+            recorded = json.loads(pool_path.read_text(encoding="utf-8")).get("pairing", {})
+            if reference_pairing != recorded:
+                problems.append(
+                    f"content->style pairing differs from the pairing of the "
+                    f"active style pool ({pool_path.name})")
 
     # recorded hash (exclude pool_hash itself, as at build time)
     if pool:
@@ -110,8 +145,51 @@ def check(manifests, subset=False):
             problems.append(f"style pool hash mismatch: recorded {pool.get('pool_hash')} != {actual}")
 
     # 5. no test-set leakage: the style images must not be PACS images
-    problems.extend(check_no_leak(pool))
+    if styled:
+        problems.extend(check_no_leak(pool))
 
+    # 8. the control groups must be what they claim to be
+    problems.extend(check_control_content(loaded, unstyled))
+
+    return problems
+
+
+def check_control_content(loaded, unstyled):
+    """Verify the defining property of every data-volume control group.
+
+    ``duplicate`` must be a byte-identical copy of the original, and
+    ``nonstyle`` must differ from it.  Without this check the two controls
+    could silently become the same group, and the decomposition of the gain
+    would collapse.
+    """
+    problems = []
+    if not unstyled:
+        return problems
+    root = config.DATA_ROOT
+    for name in unstyled:
+        identical = 0
+        total = 0
+        for rel, _label, meta in loaded[name]:
+            if not meta:
+                continue
+            source = root / "PACS" / meta[0]
+            target = root / rel
+            if not source.is_file() or not target.is_file():
+                continue
+            total += 1
+            if source.read_bytes() == target.read_bytes():
+                identical += 1
+        if total == 0:
+            problems.append(f"{name}: no comparable image pairs")
+            continue
+        if name == "duplicate" and identical != total:
+            problems.append(
+                f"duplicate: only {identical}/{total} images are byte-identical to "
+                f"the original, so the data-volume control is not a pure duplicate")
+        if name == "nonstyle" and identical != 0:
+            problems.append(
+                f"nonstyle: {identical}/{total} images are byte-identical to the "
+                f"original, so the appearance control has no effect")
     return problems
 
 
@@ -217,6 +295,12 @@ def main():
     parser.add_argument("--ours", type=Path, required=True)
     parser.add_argument("--adain-matched", type=Path, default=None,
                         help="strength-matched uniform AdaIN control manifest")
+    parser.add_argument("--ours-equal", type=Path, default=None,
+                        help="equal-strength spatial control manifest")
+    parser.add_argument("--duplicate", type=Path, default=None,
+                        help="data-volume control manifest (byte-identical copies)")
+    parser.add_argument("--nonstyle", type=Path, default=None,
+                        help="appearance control manifest (non-stylistic transforms)")
     parser.add_argument("--subset", action="store_true",
                         help="pipeline test: allow a subset of originals, "
                              "skip full-coverage and frozen-pairing checks")
@@ -228,6 +312,12 @@ def main():
     manifests = [("adain", args.adain), ("ours", args.ours)]
     if args.adain_matched is not None:
         manifests.insert(1, ("adain_matched", args.adain_matched))
+    if args.ours_equal is not None:
+        manifests.append(("ours_equal", args.ours_equal))
+    if args.duplicate is not None:
+        manifests.append(("duplicate", args.duplicate))
+    if args.nonstyle is not None:
+        manifests.append(("nonstyle", args.nonstyle))
 
     problems = check(manifests, subset=args.subset)
 

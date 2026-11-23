@@ -1,0 +1,133 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{What Does Style Augmentation Actually Buy?\\
+Style Strength versus Spatial Structure Preservation\\
+for Single-Source Cross-Domain Classification on PACS}
+
+\author{\IEEEauthorblockN{Luoyu Liu}
+\IEEEauthorblockA{2430033032}
+\and
+\IEEEauthorblockN{Member 2}
+\IEEEauthorblockA{Student ID}
+\and
+\IEEEauthorblockN{Member 3}
+\IEEEauthorblockA{Student ID}
+\and
+\IEEEauthorblockN{Member 4}
+\IEEEauthorblockA{Student ID}
+\and
+\IEEEauthorblockN{Member 5}
+\IEEEauthorblockA{Student ID}
+}
+
+\maketitle
+
+\begin{abstract}
+\input{sections/member5_abstract.tex}
+\end{abstract}
+
+\begin{IEEEkeywords}
+domain generalization, style transfer, AdaIN, data augmentation, PACS,
+controlled comparison
+\end{IEEEkeywords}
+
+%==================================================
+\section{Introduction}
+%==================================================
+
+\input{sections/member4_iia.tex}
+
+%==================================================
+\section{Related Work}
+%==================================================
+
+\input{sections/member4_iia.tex}
+\input{sections/member2_iib.tex}
+\input{sections/member2_iic.tex}
+\input{sections/member3_iid.tex}
+
+%==================================================
+\section{Methodology}
+%==================================================
+
+\input{sections/member4_iiia.tex}
+\input{sections/member1_iiib.tex}
+\input{sections/member4_iiic.tex}
+\input{sections/member2_iiid.tex}
+\input{sections/member3_iiie.tex}
+\input{sections/member4_iiif.tex}
+\input{sections/member4_iiig.tex}
+
+%==================================================
+\section{Experiments and Results}
+%==================================================
+
+\input{sections/member4_iva.tex}
+\input{sections/member4_ivb.tex}
+\input{sections/member4_ivc.tex}
+\input{sections/member4_ivd.tex}
+\input{sections/member3_ive.tex}
+\input{sections/member3_ivf.tex}
+\input{sections/member3_ivg.tex}
+\input{sections/member4_ivh.tex}
+
+\input{sections/member4_tableii.tex}
+\input{sections/member4_tableiii.tex}
+\input{sections/member4_tablevi.tex}
+\input{sections/member4_tablevi_notes.tex}
+\input{sections/member4_edgeclass.tex}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{../figures/strength_curve.png}
+\caption{Cross-domain accuracy against the average style strength. Each point
+is one trained configuration; the three series are the spatial variant, the
+uniform AdaIN variant, and the strength-matched uniform control. The
+configurations that differ in the \emph{spatial distribution} of the
+strength lie on the same curve as the ones that differ in the strength
+itself.}
+\label{fig:strength_curve}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{../figures/forest_plot.png}
+\caption{Paired differences between the experimental groups, with their 95\%
+bootstrap confidence intervals. Every interval is computed over the shared
+seeds of the two groups being compared.}
+\label{fig:forest}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{../figures/per_class_heatmap.png}
+\caption{Per-class cross-domain accuracy of the main groups. The gain over
+the Original group is concentrated in the classes whose identity depends on
+a shape rather than on a texture.}
+\label{fig:per_class}
+\end{figure}
+
+%==================================================
+\section{Conclusion and Future Work}
+%==================================================
+
+\input{sections/member5_v.tex}
+
+%==================================================
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+%==================================================
+
+\end{document}

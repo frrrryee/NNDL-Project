@@ -1,0 +1,31 @@
+% Member 4 - final report, IV.A Experimental Setup
+% Generated numbers are filled in from runs/ by the analysis scripts; this
+% file carries the prose and the table shells.
+\subsection{Experimental Setup}
+\label{sec:setup}
+\label{sec:training_prep}
+
+All experiments share one protocol, described in Section~\ref{sec:exp_design}: a single ResNet-18, one training script, one transform definition, and a fixed budget of $S = 660$ optimizer steps at batch size 64. The reported model is the final checkpoint of that budget for every group and every seed; no checkpoint is selected on any validation split. Every group is run with the same seeds, so all comparisons are \emph{paired}.
+
+We report the cross-domain average as the mean of the three target-domain accuracies (Art Painting, Cartoon, Sketch), and the in-domain Photo Test accuracy as a supporting metric. Entries in every table are mean$\pm$standard deviation over the seeds; differences between groups are computed per seed.
+
+\textit{Experimental groups.} Eight groups are trained under the identical protocol:
+
+\begin{itemize}
+\item \textit{Original} trains on the 1{,}349 Photo Training images alone.
+\item \textit{+Duplicate} adds 1{,}349 byte-identical copies of the same images under new file names. The training set has exactly the same number of rows as the styled groups and exactly the same number of \emph{distinct} images as Original. It isolates the effect of the training-set size alone.
+\item \textit{+NonStyle} adds 1{,}349 images obtained from the originals by deterministic non-stylistic transforms (colour jitter, greyscale, Gaussian blur). It has the same shape as +Duplicate but does change the appearance, so it separates a generic appearance change from a \emph{style} change.
+\item \textit{+AdaIN} adds 1{,}349 images produced by uniform AdaIN at $\alpha = 0.5$.
+\item \textit{+AdaIN (matched)} is a plain uniform AdaIN whose strength is, per image, the mean of that image's spatial $\alpha$ map, so that it carries the same total style energy as +Ours.
+\item \textit{+Ours} adds the 1{,}349 structure-preserving images at $\alpha_0 = 0.5$, $\beta = 0.7$.
+\item \textit{+Ours (equal str.)} is the spatial map with $\alpha_0$ recalibrated to $0.6692$ so that its mean strength is exactly $0.500$, matching uniform AdaIN at $\alpha = 0.5$.
+\item \textit{MixStyle} is the published feature-space baseline of Section~\ref{sec:mixstyle}. It changes the architecture, so it trains on the original images and carries its own configuration fingerprint; the optimiser, the step budget, the seeds and the evaluation splits are those of every other group.
+\end{itemize}
+
+The two data-volume controls were built by a separate generator that copies or transforms the original files and writes a manifest in the same six-column format as the style generators, so that the training pipeline is literally identical. The fairness checker verifies the defining property of each control: every +Duplicate image is byte-identical to its original, and no +NonStyle image is.
+
+\textit{Ablations and sensitivity.} Three further experiments vary one factor at a time. The $\alpha$ sweep trains the spatial variant, the uniform variant, and the strength-matched control at $\alpha \in \{0.25, 0.5, 0.75, 1.0\}$ with $\beta = 0.7$; this is the data of the main figure. The $\beta$ ablation varies how strongly the strength is modulated in space at a fixed $\alpha_0 = 0.5$, with $\beta = 0$ degenerating to a constant map, and trains the strength-matched control alongside. The style-pool sensitivity experiment splits the frozen ten-painting pool into two disjoint sets of five and re-runs the whole pipeline with each half as the only style pool.
+
+\textit{Statistical treatment.} All comparisons are paired over the shared seeds. We report the paired mean difference, its 95\% confidence interval, the paired $t$ statistic and its two-sided $p$ value, a percentile-bootstrap confidence interval (10{,}000 resamples, which does not assume normality and is therefore the more trustworthy interval at this sample size), and the paired Cohen's $d$ as an effect size. Because the report compares many pairs at once, the $p$ values are additionally corrected with the Benjamini--Hochberg procedure for a false discovery rate of 5\%. A difference that does not reach significance is reported as inconclusive.
+
+\textit{Hardware.} All runs were executed on a single NVIDIA GeForce RTX 4070 Laptop GPU. One training run takes about 190 seconds under the fixed step budget.

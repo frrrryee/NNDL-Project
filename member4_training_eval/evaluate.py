@@ -66,16 +66,35 @@ def main():
     parser.add_argument("--splits", nargs="+", default=list(ALL_SPLITS))
     parser.add_argument("--checkpoint", default=f"{config.CHECKPOINT}.pt")
     parser.add_argument("--per-class", action="store_true")
+    parser.add_argument("--group", default=None,
+                        help="the group this run belongs to; selects the right "
+                             "architecture and fingerprint.  It is read from the "
+                             "run's train_summary.json when not given.")
     args = parser.parse_args()
 
+    group = args.group
+    if group is None:
+        summary_file = args.run / "train_summary.json"
+        if summary_file.is_file():
+            group = json.loads(summary_file.read_text(encoding="utf-8")).get("group")
+    if group is None:
+        group = "original"
+
     set_seed(0)
-    model = build_model()
+    # The MixStyle layer is an identity at evaluation time, so the
+    # architecture has to match the one the run was trained with: the
+    # state dict of a MixStyle run has the extra layer in it.
+    use_mixstyle = group == config.MIXSTYLE_GROUP
+    model = build_model(mixstyle=use_mixstyle,
+                        mixstyle_p=config.MIXSTYLE_P,
+                        mixstyle_alpha=config.MIXSTYLE_ALPHA)
     state = torch.load(args.run / args.checkpoint, map_location=config.DEVICE,
                        weights_only=True)
     model.load_state_dict(state)
 
     results = {"run": str(args.run), "checkpoint": args.checkpoint,
-               "config_hash": config.config_hash()}
+               "group": group,
+               "config_hash": config.config_hash_for_group(group)}
     per_class = {}
     for split in args.splits:
         loader = DataLoader(data.load_eval_dataset(split), batch_size=128,

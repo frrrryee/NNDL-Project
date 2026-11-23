@@ -1,0 +1,92 @@
+% Member 3 - final report, III.E Structural Mechanism Analysis
+\subsection{Structural Mechanism Analysis}
+\label{sec:mechanism}
+
+Before asking whether the spatial modulation helps the classifier, we check
+whether it does what it is designed to do at the image level. The two
+questions are separate, and this section answers only the first.
+
+\paragraph{The comparison.}
+Three augmentation sets are generated from the same 1{,}349 content images,
+with the same ten style references, the same pairing, the same network and
+the same file format. They differ only in the rule that computes the
+blending weight $\alpha$ of Equation~\eqref{eq:blend}:
+
+\begin{itemize}
+\item \texttt{ours}: the spatial field of Equation~\eqref{eq:alphamap}, with
+$\alpha_0 = 0.5$ and $\beta = 0.7$;
+\item \texttt{adain}: the constant $\alpha = 0.5$, i.e. plain AdaIN;
+\item \texttt{matched}: the constant $\alpha = 0.374$, chosen so that its
+average strength equals that of \texttt{ours}.
+\end{itemize}
+
+The third set is what makes the comparison meaningful. The spatial field
+reduces the average strength, because it protects the strong-structure
+regions; comparing \texttt{ours} against \texttt{adain} alone would conflate
+the effect of the spatial distribution with the effect of the lower mean
+strength. Against \texttt{matched}, the two sets differ \emph{only} in how
+the strength is distributed over the image.
+
+\paragraph{The measured mean strength.}
+The average strength of the \texttt{ours} field is
+$\bar{\alpha} = 0.3736 \pm 0.0273$ over the 1{,}349 images, measured from
+the generated $\alpha$ maps rather than assumed from $\alpha_0$. The
+nominal value $\alpha_0(1-\beta\bar{M})$ predicts $0.374$, in agreement
+with the measurement. The \texttt{matched} control uses the constant
+$0.374$, so the two sets have equal mean strength by construction rather
+than by coincidence.
+
+\paragraph{The EdgeScore.}
+The EdgeScore is computed for all three sets over all 1{,}349 images with a
+fixed Canny detector (Section~\ref{sec:structure}). The spatial field raises
+the mean EdgeScore from $0.3211$ for plain AdaIN to $0.3436$ for
+\texttt{ours}: it does preserve more of the source edge structure than
+uniform AdaIN at the same nominal strength. The improvement is consistent
+over the whole set rather than being driven by a few images, and it holds
+in every one of the seven classes (Table~\ref{tab:edgeclass}).
+
+\paragraph{The matched control is the informative one.}
+The \texttt{matched} control reaches an EdgeScore of $0.3467$, which is
+\emph{slightly higher} than the spatial field's $0.3436$. This is not a
+contradiction but a direct consequence of the design: uniform AdaIN at a
+lower strength keeps more of the original image than a modulated field
+whose mean is the same, because the modulated field still applies the full
+strength $\alpha_0$ in its flat regions. Preserving structure and reducing
+the average style are related but distinct effects, and the matched control
+separates them.
+
+\paragraph{The mechanism test is null.}
+If the modulation preserved structure \emph{for its stated reason}, the
+images with the most structure should benefit the most. We test this
+directly, by splitting the 1{,}349 images at the median structural density
+and comparing the EdgeScore gain of \texttt{ours} over \texttt{matched} in
+the two halves. It does not hold. The high-density half gains
+$-0.0029 \pm 0.0084$ and the low-density half $-0.0034 \pm 0.0138$; the
+Welch test between them gives $t = +0.84$, $p = 0.40$. The correlation
+between an image's structural density and its gain is negligible
+(Pearson $r = +0.037$, $p = 0.18$; Spearman $\rho = +0.078$,
+$p = 0.004$). The spatial field does \emph{not} buy extra edge retention
+where the structure is strongest.
+
+The reason is visible in the per-class breakdown
+(Table~\ref{tab:edgeclass}): the \texttt{ours} minus \texttt{matched}
+difference is negative and remarkably uniform across the seven classes
+($-0.0010$ for \texttt{giraffe} to $-0.0048$ for \texttt{person}),
+including the classes with the highest and the lowest edge density. The
+modulation therefore does not act selectively on structure. It reduces the
+strength almost everywhere, and the accompanying loss of edge agreement is
+roughly constant per image. We report this because it changes the
+interpretation of the method: the field is not the selective structure
+protector it was designed to be.
+
+\paragraph{What this establishes, and what it does not.}
+Two findings, one negative and one positive. Negatively, the spatial
+modulation does not preserve structure selectively, and the mechanism
+designed to explain a gain does not explain one. Positively, the matched
+control shows that a \emph{uniform} AdaIN at a lower mean strength retains
+more edge structure than the modulated field at the same mean strength. The
+honest summary is that the modulation behaves like a mild, nearly uniform
+reduction of the style strength, and that the part of its behaviour which
+is not that --- the spatial modulation itself --- contributes nothing that
+we can detect, either in the image or in the classifier
+(Section~\ref{sec:strength_relation}).

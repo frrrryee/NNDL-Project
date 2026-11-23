@@ -1,0 +1,67 @@
+% Member 3 - final report, IV.G What the Experiments Do Not Show
+\subsection{What the Experiments Do Not Show}
+\label{sec:negative_results}
+
+A study that reports only the comparisons it expected to succeed is hard
+to evaluate. This section collects the results that did \emph{not} go our
+way, together with the ones that were inconclusive, and states what they
+do and do not license.
+
+\paragraph{The spatial modulation does not improve the accuracy.}
+This is the central negative result, and it is stated first because it is
+the one the reader is most likely to expect to be the opposite. The
+strength-matched uniform control and the spatial variant are statistically
+indistinguishable (Section~\ref{sec:main_results}), and the equal-strength
+comparison agrees. Once the amount of style is held fixed, the spatial
+distribution of the strength contributes nothing that five seeds can
+detect. We report the paired differences, their confidence intervals and
+their $p$ values; the intervals are narrow enough (about $\pm1.2$ points)
+that the absence of an effect is informative rather than a lack of power.
+
+\paragraph{The mechanism does not work as designed.}
+The second negative result is from the image analysis
+(Section~\ref{sec:mechanism}). The modulation was meant to preserve
+structure where the structure matters, and it does not: the images with
+the most edges do not gain more edge retention than the images with the
+fewest ($t = +0.84$, $p = 0.40$), and the per-class difference is
+remarkably uniform. The modulation behaves like a mild, nearly uniform
+reduction of the style strength. That is a genuine failure of the stated
+mechanism, and it is consistent with the classification result: a
+mechanism that does not operate cannot produce an effect.
+
+\paragraph{Data volume is not free.}
+The +Duplicate control reaches $37.7\%$, which is \emph{below} the
+Original group's $40.8\%$: doubling the number of training rows with
+byte-identical copies does not merely fail to help, it hurts by about
+three points. We read this as the optimiser spending its fixed step budget
+on repeated data, which is the expected consequence of a step budget rather
+than an epoch budget. It is reported because it is the reason the styled
+groups' gain has to be measured against a data-volume control and not
+against the Original group alone.
+
+\paragraph{The generic appearance control is inconclusive.}
+The +NonStyle group reaches $39.9\%$, and the difference from +Duplicate
+($+2.19$ points) does not survive the false-discovery-rate correction
+across the family of comparisons. A generic appearance change, as we
+implemented it, is therefore not measurably better than a copy. What
+\emph{is} significant is the comparison of the styled group against
++NonStyle ($+7.48$ points, $p = 0.0001$), which is the attribution of
+style itself rather than of any generic transformation.
+
+\paragraph{What the study does support.}
+Three findings survive the controls. Style augmentation itself works: the
+styled groups gain about seven points over the data-volume controls, and the
+effect is far outside the seed-to-seed spread. The amount of style applied
+is the variable that predicts the accuracy, and it does so across the whole
+sweep, with the spatial and the uniform configurations lying on the same
+curve. And the gain is not a data-volume artefact, because the controls
+that hold the data volume fixed do not show it.
+
+\paragraph{Scope.}
+These conclusions are about single-source domain generalisation on PACS,
+with one source domain, seven classes and a pretrained ResNet-18, at one
+operating point of the augmentation strength. We do not claim that the
+spatial distribution of the style never matters; we claim that on this
+benchmark, at this strength, with this structure map, it does not matter
+measurably, and that reporting a gain without controlling for the amount
+of style would have made the opposite claim appear to hold.

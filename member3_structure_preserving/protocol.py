@@ -45,8 +45,16 @@ class FrozenProtocol:
         pool = self.manifest["pool"]
         payload = {k: v for k, v in pool.items() if k != "pool_hash"}
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
-        if digest != pool["pool_hash"] or len(pool["styles"]) != config.N_STYLE_IMAGES:
-            raise ValueError("frozen style-pool hash or count does not match")
+        if digest != pool["pool_hash"]:
+            raise ValueError("frozen style-pool hash does not match its content")
+        # The pool normally holds the ten frozen paintings.  The
+        # sensitivity experiment runs the same pipeline with a half-pool of
+        # five, so the count is read from the manifest instead of being
+        # hard-coded; the count is recorded in the manifest and therefore
+        # travels with the run.
+        self.n_styles = len(pool["styles"])
+        if self.n_styles < 1:
+            raise ValueError("the style pool is empty")
         self.pool_hash = digest
         self.styles = {}
         for name, meta in pool["styles"].items():

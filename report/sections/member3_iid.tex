@@ -1,0 +1,43 @@
+% Member 3 - final report, II.D Structure Preservation and Structure-Related Metrics
+\subsection{Structure Preservation and Structure-Related Metrics}
+\label{sec:structure}
+
+The assumption behind style augmentation for classification is that the
+object's shape survives the stylisation, so that the label remains correct.
+That assumption is not automatic. Neural style transfer and AdaIN are
+trained to reproduce the \emph{style} of the reference and the broad
+\emph{content} of the source; nothing in their objective requires the
+fine-scale structure of the source to survive. An edge that carried the
+identity of the object can be washed away by a brushstroke, and the
+resulting image still looks like a plausible stylisation of the source.
+Whether it still looks like a \texttt{dog} is a separate question.
+
+Measuring that question requires an image-level, label-free criterion. We
+use the \emph{EdgeScore}: the F1 overlap between the binary edge map of the
+stylised image and the binary edge map of the source image, both taken after
+greyscale conversion and resizing to $224\times224$, with a fixed Canny
+detector at thresholds 100 and 200. A high EdgeScore means the stylised
+image kept the source's edge structure; a low one means the geometry has
+been rewritten. The metric is deliberately simple and deterministic, and it
+is computed identically for every group, so that a difference between two
+groups cannot come from the measurement.
+
+The metric has a known limitation, which we state rather than hide: it
+measures the *agreement* of the edge maps, not the *semantic* usefulness of
+the surviving edges. A background contour counts the same as the outline of
+a dog. It therefore supports a claim about structure preservation and
+cannot, by itself, support a claim about label validity. The label validity
+claim is settled by the classification experiments, which is the reason both
+kinds of evidence are reported.
+
+Two further observations frame the use of the EdgeScore in this report.
+First, the metric is computed on the generated images and never enters the
+training of the classifier, so it cannot leak into the accuracy results.
+Second, and importantly, a better EdgeScore does not imply a better
+accuracy. Our spatial modulation does improve the EdgeScore over plain
+AdaIN, and yet the two are statistically indistinguishable in cross-domain
+accuracy once their average style strength is matched
+(Section~\ref{sec:strength_relation}). The metric measures whether the
+structure survived; it does not measure whether the classifier can use it.
+Reporting both, and the disagreement between them, is the point of this
+section.

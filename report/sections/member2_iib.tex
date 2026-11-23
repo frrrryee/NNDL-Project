@@ -1,0 +1,57 @@
+﻿% Member 2 - final report, II.B Style Transfer and AdaIN
+\subsection{Style Transfer and AdaIN}
+\label{sec:adain}
+
+The appearance change we need is a large one: it must move an image from the
+photographic domain to the painterly one while keeping the object
+recognisable. Two families of tools can do this. Image-to-image translation
+methods such as CycleGAN~\\cite{zhu2017unpaired} learn a mapping between two image
+collections from unpaired examples. They can produce striking changes, but
+they need a target collection to learn from and they change the
+\emph{content} as well as the appearance, so the class label of the training
+image may no longer be justified. Neural style transfer
+\\cite{gatys2016style} and AdaIN~\\cite{huang2017adain} instead combine the
+\emph{content} of one image with the \emph{style} of another, which keeps the
+content exactly fixed and is therefore well suited to label-preserving data
+augmentation.
+
+AdaIN is the instance of that family we use. It aligns the channel-wise
+mean and variance of the content feature map with those of the style feature
+map:
+
+\begin{equation}
+\mathrm{AdaIN}(F_c, F_s) = \sigma(F_s)\left(\frac{F_c - \mu(F_c)}{\sigma(F_c)}\right) + \mu(F_s),
+\label{eq:adain}
+\end{equation}
+
+where $\mu$ and $\sigma$ are taken per channel over the spatial dimensions.
+The encoder--decoder network is the pretrained one introduced with AdaIN: a
+VGG-19 encoder trained for perceptual loss and a mirrored decoder, used
+frozen, with no training of the generator at any point. The normalisation
+itself, and the feed-forward stylisation pipeline that AdaIN belongs to,
+were developed in~\cite{ulyanov2016instance,ulyanov2017improved}; AdaIN
+replaced the fixed scale and shift of instance normalisation by the
+statistics of the style image, which is what makes the strength of the
+result interpretable. We use this
+pretrained network rather than training our own because it keeps the
+comparison honest: the only difference between our method and the AdaIN
+baseline is the rule by which the two feature maps are combined, not the
+quality of the generator.
+
+Equation~\eqref{eq:adain} mixes the two feature maps with a single constant
+weight, so the stylisation strength is uniform over the whole image. That
+uniformity is exactly what our method relaxes: we replace the constant with
+a per-location weight, so that locations whose structure is worth protecting
+receive less style. Section~\ref{sec:structure} describes that
+modulation, and Section~\ref{sec:strength_relation} shows empirically what it does
+and does not buy.
+
+Two properties of AdaIN make it a fair and useful baseline for this study.
+First, it is deterministic and training-free, so every content--style pair
+always yields the same image; the augmentation is therefore reproducible and
+can be regenerated exactly, which is what makes the five-seed comparison
+below meaningful. Second, the amount of style it applies is controlled by a
+single interpretable quantity, the strength $\alpha$ with which we blend
+between the original and the AdaIN feature map. That makes AdaIN the
+natural control for our method: it applies the same operation, with the same
+network, at a strength we can match exactly.

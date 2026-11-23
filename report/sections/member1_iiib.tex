@@ -1,0 +1,78 @@
+﻿% Member 1 - final report, III.B Dataset, Splits and the Frozen Style Pool
+\subsection{Dataset, Splits and the Frozen Style Pool}
+\label{sec:dataset}
+
+All experiments use PACS~\\cite{li2017deeper}, which contains four domains
+(Photo, Art Painting, Cartoon, Sketch) over seven object classes:
+\texttt{dog}, \texttt{elephant}, \texttt{giraffe}, \texttt{guitar},
+\texttt{horse}, \texttt{house} and \texttt{person}. The protocol is
+single-source: Photo is the only labelled training domain, and the three
+other domains are used exclusively for final evaluation.
+
+\paragraph{Splits.}
+We froze the partition once, in a single directory that every member reads
+and no member writes to. Photo is split into 1{,}349 training, 150
+validation and 171 test images; the three target domains are held out
+entirely, with 2{,}048 Art Painting, 2{,}344 Cartoon and 3{,}928 Sketch
+test images. The validation split is used only for reporting the validation
+accuracy during training; no target-domain image and no validation image
+ever influences a parameter, a checkpoint or a hyper-parameter choice. We
+verified that no path appears in more than one split, and that no two
+images in different splits share identical file contents or identical
+decoded pixels.
+
+\begin{table}[t]
+\caption{Data splits and their experimental roles.}
+\label{tab:splits}
+\centering
+\small
+\begin{tabular}{@{}lrp{4.4cm}@{}}
+\toprule
+Split & Images & Purpose \\
+\midrule
+Photo Training    & 1,349 & Update classifier parameters; provide labeled content images for augmentation \\
+Photo Validation  & 150   & Report the validation accuracy during training \\
+Photo Test        & 171   & Measure in-domain accuracy \\
+Art Painting Test & 2,048 & Measure cross-domain accuracy on art paintings \\
+Cartoon Test      & 2,344 & Measure cross-domain accuracy on cartoons \\
+Sketch Test       & 3,928 & Measure cross-domain accuracy on sketches \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Class balance.}
+The seven classes are not equally represented in PACS, and the imbalance
+differs between domains. We therefore report the accuracy per target domain
+and additionally provide a per-class breakdown (Fig.~\ref{fig:per_class})
+rather than a single pooled number, so that a gain cannot hide a collapse in
+one class. The cross-domain average we report is the unweighted mean of the
+three domain accuracies, which weights the three domains equally regardless
+of their size.
+
+\paragraph{The style pool.}
+The style references are ten external paintings, none of which belongs to
+PACS. They are frozen in a directory with a manifest, and the pool is
+hashed; every generated image records the hash of the pool it was produced
+with, so a run can be checked against the pool it claims to have used. The
+pool is split into two disjoint half-pools of five paintings each, which
+are used to test how sensitive the results are to the particular set of
+styles (Section~\ref{sec:pool_sensitivity}).
+
+The pool is external for a reason that is easy to state and easy to get
+wrong. If a style reference were taken from PACS, a training image could
+carry a fragment of an evaluation image, and the resulting accuracy would
+not measure generalisation. Because the pool is external, no target-domain
+image reaches the training set through the style channel either. The
+leakage check that accompanies the pool verifies this for every style and
+every target domain.
+
+\paragraph{The content--style pairing.}
+Each training image is assigned exactly one style reference. The assignment
+is deterministic, spreads the ten styles as evenly as the training set
+allows, and is checked to be independent of the class label: a style must
+not be systematically paired with one class more often than with another,
+or the classifier could learn the style as a shortcut for the class. The
+fairness checker verifies this balance, together with the pool membership
+and the label agreement of every generated row, before any training run is
+allowed to start. A run whose manifest fails the check is refused rather
+than trained.

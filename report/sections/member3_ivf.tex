@@ -1,0 +1,55 @@
+﻿% Member 4 - final report, IV.F Comparison with a Published Feature-Space Baseline
+\subsection{Comparison with a Published Feature-Space Baseline}
+\label{sec:mixstyle}
+
+MixStyle~\\cite{zhou2021mixstyle} is the closest published competitor of this
+family: it removes the style of the input, and it does so by mixing the
+channel-wise statistics of the feature maps with those of another sample.
+It therefore addresses the same problem as style augmentation, but in
+feature space and without generating any image. We include it in
+Table~\ref{tab:main_results} as the reference point against which the
+generative approach has to justify itself.
+
+\paragraph{How it is run.}
+MixStyle changes the architecture, so it is a separate group with its own
+configuration fingerprint, and it is trained on the \emph{original} Photo
+images: the layer does its work inside the network, so there is no
+augmentation set to build and no manifest to check. Its hyper-parameters
+are the published defaults ($p = 0.5$, $\alpha = 0.1$), and the layer is
+switched off at evaluation time, as the method prescribes. The optimiser,
+the step budget, the seeds and the evaluation splits are those of every
+other group, so the comparison is a comparison of the training data and
+the architecture, not of the training protocol.
+
+\paragraph{The result.}
+MixStyle reaches a cross-domain average of $42.2\pm2.6\%$, against
+$40.8\pm2.3\%$ for the Original group: a paired difference of $+1.37$
+points ($t = -1.84$, $p = 0.140$), which is not significant. The styled
+groups of Table~\ref{tab:main_results} reach $47.2$ to $47.4\%$ over the
+same five seeds. The generative augmentation is therefore ahead of the
+feature-space baseline by about five points, and that gap is large compared
+with the seed-to-seed spread of either method.
+
+\paragraph{What the comparison does and does not show.}
+It shows that in this setting the generative approach is the more effective
+of the two. It does not show that MixStyle is a weak method in general. Two
+limitations of the comparison should be stated. First, we ran MixStyle with
+its published defaults and did not tune it for PACS; a tuned feature-space
+method might do better, and we report this baseline as a reference point,
+not as a refutation. Second, the two methods are not interchangeable: the
+feature-space layer adds parameters to the network, whereas the generative
+method leaves the classifier untouched and produces inspectable images.
+The comparison we can make is therefore about the accuracy achieved under
+one shared protocol, and that is how we present it.
+
+\paragraph{The instructive part.}
+The more interesting observation is what MixStyle does \emph{not} change.
+The decomposition of Section~\ref{sec:main_results} attributes the gain of
+the styled groups to the amount of style they apply and to nothing else.
+MixStyle removes style in a completely different way --- in feature space,
+and without changing the amount of appearance variation in the training
+images --- and it recovers only a fraction of the gain. This is consistent
+with the picture that emerges from the rest of the study: the training
+images themselves have to carry the appearance variation, and it is the
+variation that has to be \emph{visible} to the classifier, not merely
+removed from the representation.

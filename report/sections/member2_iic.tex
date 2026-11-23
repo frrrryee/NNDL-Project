@@ -1,0 +1,40 @@
+﻿% Member 2 - final report, II.C Style Augmentation for Image Classification
+\subsection{Style Augmentation for Image Classification}
+\label{sec:style_aug_classification}
+
+Using generated images as training data is not new. The ``domain
+generalization through data augmentation'' line of work
+\cite{zhou2023dgsurvey} has established that synthetic variation can close a
+domain gap without touching the model, and several groups have
+specialised the idea to appearance. The most direct precedent is style
+augmentation itself~\cite{jackson2019style}, which randomises the style of
+the training images so that the classifier cannot use it as a cue. Other
+groups have perturbed the \emph{features} inside the network, without
+generating any image at all. MixStyle~\\cite{zhou2021mixstyle} is the clearest
+example of the second: it mixes the channel-wise mean and variance of a
+feature map with the statistics of another sample, which removes the
+domain-specific style of the input in feature space. This distinction
+matters for our study, because the second strategy does not produce images
+and therefore cannot be analysed as images. We include MixStyle as a
+published baseline (Table~\ref{tab:main_results}) precisely because it is
+the strongest competitor of the same family: it targets the same problem,
+removes the same nuisance, and needs no generator.
+
+The generator-based strategy is what this project studies, because it lets
+the strength of the stylisation be an explicit, inspectable quantity. It
+also lets us ask a question that feature-space methods cannot: \emph{how
+much} style should be applied, and \emph{where} should it be applied? The
+first question is about the total amount of appearance change, the second
+about its spatial distribution. Our experiments separate them with two
+controls that hold one constant while the other varies, which is the design
+described in Section~\ref{sec:strength_relation}.
+
+The prevailing intuition is that stronger stylisation is better, on the
+grounds that it removes more of the domain-specific appearance cue. Our
+results qualify that intuition. The accuracy of a styled training set is
+governed by its average style strength, and once that is matched, the
+spatial distribution of the strength contributes nothing measurable
+(Section~\ref{sec:strength_relation}). Reporting the strengths explicitly
+is therefore not a detail of the method but a precondition for a fair
+comparison, and we report it for every configuration in
+Table~\ref{tab:main_results}.

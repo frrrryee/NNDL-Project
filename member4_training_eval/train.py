@@ -44,6 +44,13 @@ def main():
     parser.add_argument("--eval-targets", action="store_true",
                         help="evaluate target domains during training (diagnostic "
                              "only; never used for checkpoint selection)")
+    parser.add_argument("--keep-checkpoint", action="store_true",
+                        help="keep the trained weights on disk after training.  "
+                             "By default the checkpoint is deleted once the "
+                             "training summary has been written: the reported "
+                             "numbers are in the summary and the evaluation "
+                             "JSON, and a full sweep produces dozens of runs "
+                             "whose weights would occupy gigabytes.")
     args = parser.parse_args()
 
     tag = args.tag or f"{args.group}_s{args.seed}"
@@ -65,9 +72,12 @@ def main():
         num_workers=config.NUM_WORKERS, pin_memory=True, drop_last=False,
         persistent_workers=config.NUM_WORKERS > 0,
     )
-    print(f"[{tag}] train images: {len(train_ds)}  device: {config.DEVICE}")
+    print(f"[{tag}] train images: {len(train_ds)}  device: {config.DEVICE}",
+          flush=True)
 
-    model = build_model()
+    model = build_model(mixstyle=config.MIXSTYLE,
+                        mixstyle_p=config.MIXSTYLE_P,
+                        mixstyle_alpha=config.MIXSTYLE_ALPHA)
     criterion = nn.CrossEntropyLoss(label_smoothing=config.LABEL_SMOOTHING)
     optimizer = torch.optim.SGD(model.parameters(), lr=config.LR,
                                 momentum=config.MOMENTUM,
@@ -110,8 +120,8 @@ def main():
                 marker = ""
                 if val_acc > best["val_acc"]:
                     best = {"step": step, "val_acc": val_acc}
-                    torch.save(model.state_dict(), out_dir / "best.pt")
-                    marker = " *"
+                    if not config.SAVE_BEST_CHECKPOINT:
+                        marker = " *"
                 if args.eval_targets:
                     for split in ("art_painting_test", "cartoon_test", "sketch_test"):
                         record[split] = evaluate_model(
@@ -124,13 +134,19 @@ def main():
                                 if k in record)
                 print(f"[{tag}] step {step:4d}/{total_steps}  "
                       f"loss {loss.item():.4f}  val {val_acc*100:5.2f}%{marker}"
-                      f"{extra}  ({time.time()-t0:.0f}s)")
+                      f"{extra}  ({time.time()-t0:.0f}s)", flush=True)
                 model.train()
 
     torch.save(model.state_dict(), out_dir / "last.pt")
+    if config.SAVE_BEST_CHECKPOINT:
+        # ``best.pt`` is kept only when explicitly requested.  The reported
+        # checkpoint is always the final one of the fixed step budget, so
+        # ``best.pt`` is never used for selection; it is kept on disk purely
+        # as a reference.  The sweep below runs dozens of groups, and each
+        # extra checkpoint is 43 MB, so it is off by default.
+        torch.save(model.state_dict(), out_dir / "best.pt")
     if config.CHECKPOINT == "last":
-        # Report the final checkpoint (no selection bias); keep best.pt on disk
-        # for reference and for the ablation analyses.
+        # Report the final checkpoint (no selection bias).
         summary_best = {"step": total_steps, "val_acc": best["val_acc"]}
     else:
         summary_best = best
@@ -140,7 +156,7 @@ def main():
         "tag": tag,
         "train_images": len(train_ds),
         "aug_manifest": str(args.aug_manifest) if args.aug_manifest else None,
-        "config_hash": config.config_hash(),
+        "config_hash": config.config_hash_for_group(args.group),
         "training_config": config.training_config(),
         "best_val_acc": best["val_acc"],
         "best_step": best["step"],
@@ -153,6 +169,18 @@ def main():
     }
     (out_dir / "train_summary.json").write_text(json.dumps(summary, indent=2))
     print(f"[{tag}] done. best val {best['val_acc']*100:.2f}% @ step {best['step']}")
+
+    if not args.keep_checkpoint:
+        # The weights are only needed for the evaluation that follows, and
+        # the evaluation is done by ``evaluate.py`` right after this script.
+        # The orchestrator (``run_sweep.py``) evaluates first and removes the
+        # checkpoint afterwards; this is the safety net for a run that is
+        # trained by hand and then forgotten.
+        for name in ("last.pt", "best.pt"):
+            candidate = out_dir / name
+            if candidate.is_file():
+                candidate.unlink()
+        print(f"[{tag}] checkpoint removed (the numbers are in the summary)")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,69 @@
+% Member 4 - final report, III.F The Strength of the Style as the Controlled Variable
+\subsection{The Strength of the Style as the Controlled Variable}
+\label{sec:strength_energy}
+
+The central quantity of this study is not the spatial distribution of the
+style but its \emph{amount}. This section defines that amount precisely and
+explains why it has to be controlled before any claim about the
+distribution can be made.
+
+\paragraph{Two different notions of strength.}
+A stylisation has at least two natural measures of how much it changed the
+image, and they are not the same thing. The first is the \emph{nominal}
+strength $\alpha_0$, the parameter that appears in the blending rule. The
+second is the \emph{effective} strength $\bar{\alpha}$ of
+Equation~\eqref{eq:meanstrength}, the average of the blending field over
+the feature grid. For a uniform configuration the two coincide, because
+$\alpha$ is constant. For a modulated configuration they do not: the field
+of Equation~\eqref{eq:alphamap} averages
+$\alpha_0(1-\beta\bar{M})$, which at the main setting
+($\alpha_0 = 0.5$, $\beta = 0.7$, measured $\bar{M} = 0.361$) gives
+$\bar{\alpha} = 0.374$ rather than $0.5$.
+
+\paragraph{Why the difference is not negligible.}
+The difference between $0.5$ and $0.374$ is large on the scale of the
+effect we are trying to detect: it is exactly the difference between the
+uniform AdaIN group and the strength-matched control, and those two differ
+by about two accuracy points. A comparison between a modulated field and a
+uniform style at the same $\alpha_0$ therefore measures two things at once,
+and the two do not have the same sign: the modulation is expected to help
+(the claim under test), while the reduced effective strength is expected to
+hurt (a well-known effect of weaker augmentation). Any result of such a
+comparison is uninterpretable.
+
+\paragraph{How the effective strength is measured.}
+We do not assume the relation $\bar{\alpha} = \alpha_0(1-\beta\bar{M})$;
+we measure it. For every generated image, the actual blending field is
+averaged over the feature grid and recorded, and the effective strength of
+the whole set is the mean of those per-image values. Over the 1{,}349
+training images of the main configuration the measured value is
+$0.3736 \pm 0.0273$, in agreement with the nominal prediction of $0.374$.
+The measurement is what the strength-matched control is built from: its
+constant $\alpha$ is set to the measured mean of the field it has to match,
+not to the nominal $\alpha_0$.
+
+\paragraph{The two controls.}
+We use two matched controls, one for each direction of the comparison, and
+they answer different questions.
+
+The \emph{strength-matched uniform AdaIN} replaces the modulated field by
+the constant that has the same average strength. Comparing against it
+answers the question we actually care about: \emph{given the same total
+amount of style, does it matter how that amount is distributed over the
+image?} The answer we obtain is no.
+
+The \emph{equal-strength spatial map} goes the other way: it keeps the
+modulation and recalibrates $\alpha_0$ so that the mean strength equals
+that of a uniform AdaIN at $\alpha = 0.5$, namely
+$\alpha_0 = 0.500/(1-0.7\times0.361) = 0.6692$. Comparing against it
+answers the complementary question: \emph{at a fixed nominal strength, how
+much does the modulation change the result, once the change in total
+strength is compensated?} Here the two groups differ in the modulation and
+in nothing else.
+
+Reporting both is what makes the conclusion robust to the choice of which
+quantity is held fixed. If the spatial distribution mattered, then
+\emph{both} comparisons would show an advantage for the modulated field,
+because both remove the strength confound. They do not. The advantage
+appears only when the strength is \emph{not} controlled, which is precisely
+the confound, not an effect.

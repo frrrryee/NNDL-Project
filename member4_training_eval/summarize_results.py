@@ -15,10 +15,15 @@ import config
 CROSS = ("art_painting_test", "cartoon_test", "sketch_test")
 HEADER = ("Training method", "Photo", "Art", "Cartoon", "Sketch", "Avg")
 PRETTY = {"original": "Original", "adain": "+AdaIN",
-          "adain_matched": "+AdaIN (strength-matched)", "ours": "+Ours"}
+          "adain_matched": "+AdaIN (strength-matched)", "ours": "+Ours",
+          "ours_equal": "+Ours (equal strength)",
+          "duplicate": "+Duplicate (data-volume control)",
+          "nonstyle": "+NonStyle (appearance control)"}
 # The order the groups are reported in, so that the strength-matched control
-# always sits directly between the two groups it compares.
-GROUP_ORDER = ("original", "adain", "adain_matched", "ours")
+# always sits directly between the two groups it compares, and the two
+# data-volume controls sit directly after the group they are compared with.
+GROUP_ORDER = ("original", "duplicate", "nonstyle", "adain", "adain_matched",
+               "ours", "ours_equal")
 
 
 def fmt(entry):

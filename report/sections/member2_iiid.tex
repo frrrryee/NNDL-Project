@@ -1,0 +1,59 @@
+% Member 2 - final report, III.D Training Protocol
+\subsection{Training Protocol}
+\label{sec:training_protocol}
+
+Every group is trained with the same protocol, so that the differences in
+the results are attributable to the training data and to nothing else.
+
+\paragraph{Architecture.}
+The classifier is a ResNet-18 with the standard four stages, initialised
+from the ImageNet-pretrained weights. No group uses a different
+architecture, except the MixStyle baseline, which adds the published
+MixStyle feature-mixing layer; that baseline is trained on the original
+images and carries a separate configuration fingerprint, so that it can
+never be conflated with a styled group.
+
+\paragraph{Optimisation.}
+We use SGD with momentum 0.9, weight decay $5\times10^{-4}$, learning rate
+0.01 and a cosine annealing schedule, with label smoothing 0.1 and a batch
+size of 64. The step budget is fixed at 660 optimiser steps for every
+group. This number is 30 nominal epochs over the 1{,}349-image Original
+training set, and it is deliberately a \emph{step} budget rather than an
+epoch budget: the styled groups have twice as many training rows, so an
+epoch budget would give them twice the number of gradient updates and the
+comparison would be confounded.
+
+\paragraph{Data augmentation during training.}
+Training images are resized to $224\times224$, randomly cropped with
+rejection of degenerate crops, and randomly horizontally flipped, with the
+usual ImageNet normalisation. These are the standard training-time
+augmentations and they are applied identically to every group.
+
+\paragraph{Which checkpoint is reported.}
+We report the \emph{final} checkpoint of the fixed step budget, not the
+best one on the validation set. The reason is quantitative and worth
+stating: the Photo validation accuracy saturates at 97--98\% within the
+first 60 steps, and with 150 validation images one image is worth
+$0.67\%$, so selecting the best validation checkpoint selects noise. On our
+baseline this selection more than doubled the seed-to-seed spread of the
+cross-domain accuracy, from a standard deviation of 2.71 to 7.22 points.
+Using the final checkpoint introduces no selection bias at all, and it makes
+the protocol identical for every group without exception.
+
+\paragraph{Seeds.}
+Every reported group is trained with five seeds, 0 to 4. The seed controls
+the weight initialisation, the data order, the crops and the flips. All
+seeds of all groups use the same set of seed values, so that every
+comparison in this paper is a \emph{paired} one over the same five
+realisations; every difference we report is a paired difference, with its
+bootstrap confidence interval, its paired $t$-test, a
+Benjamini--Hochberg corrected $p$-value across the family of comparisons,
+and Cohen's $d$.
+
+\paragraph{Reproducibility.}
+Every run records a configuration fingerprint that covers the training
+protocol, the evaluation splits and the manifest it used. A run whose
+recorded fingerprint differs from the current one is retrained rather than
+reused, so a table can never mix two protocols. The fingerprints are
+computed from the configuration itself rather than being entered by hand,
+which is what makes the check meaningful.

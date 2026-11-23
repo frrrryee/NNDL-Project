@@ -76,6 +76,15 @@ class Run:
 
 def _locations(args, data_root, alpha, beta):
     tag = f"a{_number(alpha)}_b{_number(beta)}"
+    # The style-pool sensitivity experiment runs the same alpha/beta cell
+    # with a *different* style pool.  Without a distinct cell tag the
+    # half-pool run would write into the directory of the full-pool run,
+    # and the two would overwrite each other (their pool hashes differ, so
+    # the resume check would reject the second one).  The suffix keeps the
+    # two experiments in separate directories while leaving the alpha/beta
+    # values of the cell itself untouched.
+    if getattr(args, "cell_tag", None):
+        tag = f"{args.cell_tag}_{tag}"
     if args.mode == "build" and not args.limit:
         root = data_root / "aug_sp"
         return root, root / "manifest_ours.txt"
@@ -341,6 +350,11 @@ def parser():
                              help="fixed Canny EdgeScore after JPEG encoding; OpenCV required")
         command.add_argument("--lpips", action="store_true", help="also compute LPIPS (optional package/weights)")
         command.add_argument("--overwrite", action="store_true", help="allow replacing an incompatible existing run")
+        command.add_argument("--cell-tag", default=None,
+                             help="extra prefix for the output directory of this cell. "
+                                  "The style-pool sensitivity experiment uses it to "
+                                  "keep the half-pool runs apart from the full-pool "
+                                  "run of the same alpha/beta values.")
     return result
 
 
