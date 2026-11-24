@@ -81,7 +81,7 @@ def load_train_rows(group, aug_manifest=None):
     train_originals = config.read_split(config.SPLIT_FILES["photo_train"])
     rows = [(f"PACS/{rel}", label) for rel, label in train_originals]
     augmented = []
-    if group in config.AUGMENTED_GROUPS or group == config.FOREGROUND_GROUP:
+    if group in config.AUGMENTED_GROUPS or group in config.FOREGROUND_GROUPS:
         if aug_manifest is None:
             raise ValueError(f"group '{group}' requires an augmentation manifest")
         for rel, label, meta in read_aug_manifest(aug_manifest):

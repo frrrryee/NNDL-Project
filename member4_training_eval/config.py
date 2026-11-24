@@ -80,8 +80,24 @@ FOREGROUND_KIND = "spectral_center"
 #: The manifest of the repaired variant, relative to the data root.
 FOREGROUND_MANIFEST = "aug_sp/foreground/manifest_ours.txt"
 
+#: The variant that won the map selection: the centre prior on its own.
+#:
+#: It is a *different* map from :data:`FOREGROUND_KIND`, so it is a
+#: different method and gets its own fingerprint, exactly like every
+#: other group here.  It is reported in its own section, never in the
+#: main table.
+FOREGROUND_CENTER_GROUP = "ours_fg_center"
+FOREGROUND_CENTER_KIND = "center"
+FOREGROUND_CENTER_MANIFEST = "aug_sp/fgcenter/manifest_ours.txt"
+
+#: Every group that is a repaired modulation of the style strength.  Each
+#: one is a different map and therefore a different method, with its own
+#: fingerprint, manifest and section in the report.
+FOREGROUND_GROUPS = (FOREGROUND_GROUP, FOREGROUND_CENTER_GROUP)
+
 GROUPS = ("original", "adain", "adain_matched", "ours", "ours_equal",
-          "duplicate", "nonstyle", "mixstyle", FOREGROUND_GROUP)
+          "duplicate", "nonstyle", "mixstyle", FOREGROUND_GROUP,
+          FOREGROUND_CENTER_GROUP)
 # Groups whose training set is the original Photo images plus one styled
 # (or controlled) image per original, taken from that group's manifest.
 AUGMENTED_GROUPS = ("adain", "adain_matched", "ours", "ours_equal",
@@ -99,6 +115,8 @@ GROUP_MANIFESTS = {
     "ours_equal": "aug_sp/sweeps/sweep_full/a0p669215_b0p7/manifest_ours.txt",
     "duplicate": "augmented/manifest_duplicate.txt",
     "nonstyle": "augmented/manifest_nonstyle.txt",
+    FOREGROUND_GROUP: FOREGROUND_MANIFEST,
+    FOREGROUND_CENTER_GROUP: FOREGROUND_CENTER_MANIFEST,
 }
 
 SPLIT_FILES = {
@@ -374,12 +392,31 @@ def foreground_config_hash() -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
+def foreground_center_config_hash() -> str:
+    """The fingerprint of the centre-prior repair.
+
+    The map selection chose the centre prior over the spectral residual
+    on the mechanism criterion, by a factor of thirty.  It is a
+    different map and therefore a different method, so it carries its
+    own fingerprint: pooling it with the spectral variant would hide
+    exactly the comparison that decided the choice.
+    """
+    payload = {
+        "base": config_hash(),
+        "modulation": "foreground",
+        "foreground_kind": FOREGROUND_CENTER_KIND,
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+
+
 def config_hash_for_group(group: str) -> str:
     """The fingerprint that applies to a group."""
     if group == MIXSTYLE_GROUP:
         return mixstyle_config_hash()
     if group == FOREGROUND_GROUP:
         return foreground_config_hash()
+    if group == FOREGROUND_CENTER_GROUP:
+        return foreground_center_config_hash()
     return config_hash()
 
 

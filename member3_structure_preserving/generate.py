@@ -90,10 +90,19 @@ def _locations(args, data_root, alpha, beta):
     if args.mode == "build" and not args.limit:
         # The repaired modulation writes into its own directory, so that
         # its manifest can never be confused with the original method's.
-        if cell_tag == "foreground":
-            root = data_root / "aug_sp" / "foreground"
+        #
+        # Every *other* cell tag also needs a directory of its own.  A
+        # build that carries an unrecognised tag used to fall through to
+        # the shared ``aug_sp`` directory and replace the original
+        # (Sobel) dataset there -- silently, because the tag was only
+        # used to name the sweep directories.  The shared directory now
+        # belongs to the original method alone, so a tagged build gets
+        # its own directory and the original method keeps the shared
+        # one.
+        if cell_tag is None:
+            root = data_root / "aug_sp"
             return root, root / "manifest_ours.txt"
-        root = data_root / "aug_sp"
+        root = data_root / "aug_sp" / cell_tag
         return root, root / "manifest_ours.txt"
     category = "sweeps" if args.mode == "sweep" else "previews"
     selection = f"{args.mode}_n{args.limit}" if args.limit else f"{args.mode}_full"
@@ -236,9 +245,8 @@ def run(args):
                    state.root / "manifest_adain_matched.txt"]
         if args.mode == "build" and not args.limit:
             # Only the original method's build owns the shared manifest
-            # under ``augmented/``; the repaired variant must leave it
-            # alone.
-            if getattr(args, "cell_tag", None) != "foreground":
+            # under ``augmented/``; a tagged build must leave it alone.
+            if getattr(args, "cell_tag", None) is None:
                 pending.append(protocol.data_root / "augmented" / "manifest_ours.txt")
         for path in pending:
             if path.exists():
@@ -309,10 +317,10 @@ def run(args):
         _atomic_text(state.root / "pairs.txt", "\n".join(pair_lines) + "\n")
         if args.mode == "build" and not args.limit:
             # The original method's build also publishes the manifest under
-            # ``augmented/`` for the older members' scripts.  The repaired
-            # variant must not: it would overwrite the original method's
+            # ``augmented/`` for the older members' scripts.  A tagged
+            # build must not: it would overwrite the original method's
             # manifest and make the two indistinguishable.
-            if getattr(args, "cell_tag", None) != "foreground":
+            if getattr(args, "cell_tag", None) is None:
                 _atomic_text(protocol.data_root / "augmented" / "manifest_ours.txt",
                              "\n".join(ours_lines) + "\n")
         if adain_lines:

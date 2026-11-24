@@ -153,12 +153,12 @@ def main() -> int:
     print("PHOTO VALIDATION SELECTION (source-domain held-out split)")
     print("=" * 72)
     print(f"  {'candidate':<20}{'mean':>10}{'std':>10}   per seed")
-    for kind in CANDIDATES:
+    for kind in args.kinds:
         block = results[kind]
         mean = block["photo_val_mean"]
         std = block["photo_val_std"]
-        seeds = ", ".join(f"{a:.2f}" for a in block["photo_val_per_seed"])
-        print(f"  {kind:<20}{mean:>9.2f}%{std:>9.2f}%   {seeds}")
+        seeds = ", ".join(f"{a*100:.2f}" for a in block["photo_val_per_seed"])
+        print(f"  {kind:<20}{mean*100:>9.2f}%{std*100:>9.2f}%   {seeds}")
 
     # The winner is the highest mean; a tie is broken by the smaller
     # seed-to-seed spread, because a candidate that only wins by luck is
