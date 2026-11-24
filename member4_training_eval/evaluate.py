@@ -73,10 +73,15 @@ def main():
     args = parser.parse_args()
 
     group = args.group
+    manifest = None
     if group is None:
         summary_file = args.run / "train_summary.json"
         if summary_file.is_file():
-            group = json.loads(summary_file.read_text(encoding="utf-8")).get("group")
+            summary = json.loads(summary_file.read_text(encoding="utf-8"))
+            group = summary.get("group")
+            recorded_manifest = summary.get("aug_manifest")
+            if recorded_manifest:
+                manifest = Path(recorded_manifest)
     if group is None:
         group = "original"
 
@@ -94,7 +99,7 @@ def main():
 
     results = {"run": str(args.run), "checkpoint": args.checkpoint,
                "group": group,
-               "config_hash": config.config_hash_for_group(group)}
+               "config_hash": config.config_hash_for_group(group, manifest)}
     per_class = {}
     for split in args.splits:
         loader = DataLoader(data.load_eval_dataset(split), batch_size=128,

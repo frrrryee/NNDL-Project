@@ -120,18 +120,20 @@ def train_and_evaluate(group: str, seed: int, tag_prefix: str | None = None,
     run_dir.mkdir(parents=True, exist_ok=True)
     eval_file = run_dir / f"eval_{config.CHECKPOINT}.json"
 
+    manifest = manifest if manifest is not None else manifest_of(group)
+
     reusable = eval_file.is_file() and not force
     if reusable:
         recorded = config.canonical_hash_of_run(run_dir)
-        if recorded is not None and recorded != config.config_hash_for_group(group):
+        current = config.config_hash_for_group(group, manifest)
+        if recorded is not None and recorded != current:
             print(f"    {tag}: stored result has config {recorded} != current "
-                  f"{config.config_hash_for_group(group)}; retraining")
+                  f"{current}; retraining")
             reusable = False
     if reusable:
         print(f"    {tag}: already present and up to date, skipping")
         return json.loads(eval_file.read_text(encoding="utf-8"))
 
-    manifest = manifest if manifest is not None else manifest_of(group)
     command = [sys.executable, "train.py", "--group", group,
                "--seed", str(seed), "--tag", tag, "--keep-checkpoint"]
     if manifest is not None:

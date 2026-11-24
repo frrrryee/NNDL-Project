@@ -374,7 +374,7 @@ def mixstyle_config_hash() -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def foreground_config_hash() -> str:
+def foreground_config_hash(kind: str | None = None) -> str:
     """The fingerprint of a repaired-modulation run.
 
     The repaired variant changes the *augmentation*, not the training
@@ -383,11 +383,17 @@ def foreground_config_hash() -> str:
     because it is a different method and must never be pooled with the
     main groups.  The hash records which foreground estimator was used, so
     two different repairs cannot be confused either.
+
+    The estimator must be part of the fingerprint, and not merely the
+    group name: the map selection trains several candidates *under one
+    group name*, and a fingerprint that ignored the map would make all of
+    them indistinguishable.  That is exactly the comparison the selection
+    turns on, so it must not be hidden.
     """
     payload = {
         "base": config_hash(),
         "modulation": "foreground",
-        "foreground_kind": FOREGROUND_KIND,
+        "foreground_kind": kind or FOREGROUND_KIND,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
@@ -409,14 +415,61 @@ def foreground_center_config_hash() -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def config_hash_for_group(group: str) -> str:
-    """The fingerprint that applies to a group."""
+def foreground_kind_of_manifest(manifest: Path | None) -> str | None:
+    """The foreground estimator that a manifest was built with.
+
+    The map selection trains several candidates under one group name, and
+    the candidates differ only in the estimator that produced their
+    images.  The estimator is recorded in the generator's own
+    ``generation.json`` next to the manifest, so the map can be recovered
+    from the manifest alone.
+
+    Returns ``None`` when the map cannot be determined -- a manifest
+    without a generator record is not a foreground dataset, and guessing
+    would be worse than admitting the uncertainty.
+    """
+    if manifest is None:
+        return None
+    manifest = Path(manifest)
+    for directory in (manifest.parent, manifest.parent.parent):
+        record = directory / "generation.json"
+        if not record.exists():
+            continue
+        try:
+            settings = json.loads(record.read_text(encoding="utf-8")).get("settings", {})
+        except (OSError, ValueError):
+            continue
+        kind = settings.get("foreground_kind")
+        if kind:
+            return kind
+    return None
+
+
+def config_hash_for_group(group: str, manifest: Path | None = None) -> str:
+    """The fingerprint that applies to a group.
+
+    For a repaired modulation the fingerprint depends on the *map*, and
+    the map is read from the manifest that the run actually uses.  The
+    group name alone is not enough: the map selection trains several
+    candidates under one group name, and a fingerprint that ignored the
+    map would make them indistinguishable -- hiding precisely the
+    comparison the selection turns on.
+    """
     if group == MIXSTYLE_GROUP:
         return mixstyle_config_hash()
-    if group == FOREGROUND_GROUP:
-        return foreground_config_hash()
-    if group == FOREGROUND_CENTER_GROUP:
-        return foreground_center_config_hash()
+    if group in FOREGROUND_GROUPS:
+        kind = foreground_kind_of_manifest(manifest)
+        if kind is None:
+            # The map could not be read from the manifest.  Falling back
+            # to the group's declared kind would silently claim a map
+            # the run did not use, so the run is refused instead: a
+            # fingerprint that cannot be established must not be
+            # invented.
+            raise ValueError(
+                f"group '{group}': the foreground estimator of manifest "
+                f"'{manifest}' could not be read, so no fingerprint can be "
+                f"established; pass the map explicitly")
+        return foreground_config_hash(kind)
     return config_hash()
 
 
@@ -427,6 +480,11 @@ def canonical_hash_of_run(run_dir: Path) -> None | str:
     the architecture and therefore has its own fingerprint.  The group is
     read from the recorded summary, so a MixStyle run is compared against
     the MixStyle hash and every other run against the main one.
+
+    A repaired modulation depends on the *map* as well, and the map is
+    read from the manifest the run recorded.  A run whose manifest is
+    missing cannot have its map established, so no fingerprint is
+    returned for it rather than a guessed one.
     """
     summary = Path(run_dir) / "train_summary.json"
     if not summary.is_file():
@@ -437,5 +495,12 @@ def canonical_hash_of_run(run_dir: Path) -> None | str:
     if isinstance(recorded, dict):
         return config_hash_of(recorded)
     if group is not None:
-        return config.config_hash_for_group(group)
+        manifest = payload.get("aug_manifest")
+        if group in FOREGROUND_GROUPS:
+            kind = foreground_kind_of_manifest(
+                Path(manifest) if manifest else None)
+            if kind is None:
+                return None
+            return foreground_config_hash(kind)
+        return config_hash_for_group(group)
     return payload.get("config_hash")

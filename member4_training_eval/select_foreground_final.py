@@ -57,6 +57,12 @@ from data import read_aug_manifest  # noqa: E402
 
 CANDIDATES = ("spectral", "center", "spectral_center")
 
+#: The nominal strength the candidate sets are generated at.  It is the
+#: reference point of the strength deficit: a candidate whose map reduces
+#: the mean strength far below it is styling less, and its mechanism
+#: gain has to be divided by that deficit to be comparable.
+NOMINAL_ALPHA = 0.5
+
 
 def subset_manifest(kind: str, subset: int) -> Path:
     """The manifest of one candidate's reduced set."""
@@ -87,6 +93,16 @@ def mechanism_score(kind: str, subset: int) -> dict | None:
     positive difference means the spatial map retains more edge structure
     than a uniform control at the same effective strength -- that is, the
     mechanism works.
+
+    The effective strength is reported as well, and it is essential.
+    A candidate whose map covers a large area with a high value -- the
+    ``center`` prior covers the middle of the frame -- reduces the mean
+    strength a long way, and a stylised image that is closer to the
+    content keeps more of the content's edges.  Such a candidate can
+    therefore show a large mechanism gain while simply *styling less*,
+    which is a confound and not an improvement.  The ``strength_adjusted``
+    entry is the gain divided by the strength deficit, and it is the
+    number that is free of that confound.
     """
     manifest = subset_manifest(kind, subset)
     matched = manifest.parent / "manifest_adain_matched.txt"
@@ -97,13 +113,42 @@ def mechanism_score(kind: str, subset: int) -> dict | None:
     difference = ours - control
     valid = ~np.isnan(difference)
     t, p = stats.ttest_rel(ours[valid], control[valid])
+
+    effective = effective_alpha(kind, subset)
+    # The strength deficit relative to the nominal alpha.  A candidate
+    # with a deficit near zero stylises as strongly as the others.
+    deficit = (None if effective is None
+               else max(0.0, NOMINAL_ALPHA - effective))
+    adjusted = (None if (deficit is None or deficit <= 1e-9)
+                else float(difference.mean()) / deficit)
     return {
         "mean_difference": float(difference.mean()),
         "std": float(difference.std(ddof=1)),
         "fraction_worse": float((difference < 0).sum() / len(difference)),
         "paired_t": float(t), "paired_p": float(p),
         "n": int(valid.sum()),
+        "effective_alpha": effective,
+        "strength_deficit": deficit,
+        "strength_adjusted": adjusted,
     }
+
+
+def effective_alpha(kind: str, subset: int) -> float | None:
+    """The mean of the candidate's spatial alpha field.
+
+    It is read from the generator's own analysis file, so it is the
+    number the generator actually used and not a recomputation.
+    """
+    path = subset_manifest(kind, subset).parent / "analysis.json"
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    block = (payload.get("ours") or {}).get("mean_alpha") or {}
+    value = block.get("mean")
+    return float(value) if value is not None else None
 
 
 def validation_scores() -> dict:
@@ -178,15 +223,26 @@ def main() -> None:
     print("CRITERION 2 -- MECHANISM RANK (EdgeScore vs own matched control)")
     print("=" * 84)
     print(f"  {'candidate':<20}{'mean diff':>12}{'std':>9}{'% worse':>9}"
-          f"{'paired p':>12}")
+          f"{'eff alpha':>11}{'adjusted':>11}{'paired p':>11}")
     for kind in CANDIDATES:
         block = mechanisms.get(kind)
         if not block:
             print(f"  {kind:<20}{'(no matched control)':>20}")
             continue
+        effective = block["effective_alpha"]
+        adjusted = block["strength_adjusted"]
         print(f"  {kind:<20}{block['mean_difference']:>+12.4f}"
               f"{block['std']:>9.4f}{block['fraction_worse']*100:>8.1f}%"
-              f"{block['paired_p']:>12.3e}")
+              f"{(effective if effective is not None else float('nan')):>11.4f}"
+              f"{(adjusted if adjusted is not None else float('nan')):>+11.4f}"
+              f"{block['paired_p']:>11.3e}")
+
+    print()
+    print("  The 'adjusted' column divides the gain by the strength deficit:")
+    print("  a map that reduces the mean strength stylises less, which raises")
+    print("  the EdgeScore for a reason that has nothing to do with the")
+    print("  modulation.  The adjusted column is the gain per unit of")
+    print("  withheld strength, and it is what the rank uses.")
 
     eligible = [k for k in passed if mechanisms.get(k)]
     if not eligible:
@@ -194,8 +250,16 @@ def main() -> None:
         print("  no candidate passed the gate with a measured mechanism; "
               "the selection cannot be made.")
         return
-    winner = max(eligible,
-                 key=lambda k: mechanisms[k]["mean_difference"])
+
+    def rank_key(kind: str):
+        block = mechanisms[kind]
+        # A candidate with no measurable strength deficit cannot be
+        # adjusted, so it falls back to the raw gain.
+        adjusted = block["strength_adjusted"]
+        return (adjusted if adjusted is not None
+                else block["mean_difference"])
+
+    winner = max(eligible, key=rank_key)
     print()
     print(f"  eligible: {', '.join(eligible)}")
     print(f"  SELECTED: {winner}")
@@ -213,9 +277,11 @@ def main() -> None:
         },
         "criterion_2_rank": {
             "description": "EdgeScore gain over the candidate's own "
-                           "strength-matched uniform control, measured on the "
-                           "images; no label and no target-domain image is "
-                           "involved",
+                           "strength-matched uniform control, divided by the "
+                           "candidate's strength deficit relative to the "
+                           "nominal alpha, so that a candidate cannot win by "
+                           "stylising less; measured on the images, with no "
+                           "label and no target-domain image involved",
             "per_candidate": {k: v for k, v in mechanisms.items() if v},
         },
         "selection_set": "photo_val (gate) + image-level mechanism (rank)",
