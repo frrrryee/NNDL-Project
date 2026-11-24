@@ -301,6 +301,10 @@ def main():
                         help="data-volume control manifest (byte-identical copies)")
     parser.add_argument("--nonstyle", type=Path, default=None,
                         help="appearance control manifest (non-stylistic transforms)")
+    parser.add_argument("--foreground", type=Path, default=None,
+                        help="repaired-modulation manifest (spectral or centre map)")
+    parser.add_argument("--foreground-matched", type=Path, default=None,
+                        help="matched uniform control of a repaired modulation")
     parser.add_argument("--subset", action="store_true",
                         help="pipeline test: allow a subset of originals, "
                              "skip full-coverage and frozen-pairing checks")
@@ -318,6 +322,10 @@ def main():
         manifests.append(("duplicate", args.duplicate))
     if args.nonstyle is not None:
         manifests.append(("nonstyle", args.nonstyle))
+    if args.foreground is not None:
+        manifests.append(("ours_fg", args.foreground))
+    if args.foreground_matched is not None:
+        manifests.append(("ours_fg_center_matched", args.foreground_matched))
 
     problems = check(manifests, subset=args.subset)
 

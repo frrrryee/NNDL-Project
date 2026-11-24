@@ -49,7 +49,7 @@ from member3_structure_preserving.attention_map import (  # noqa: E402
     AttentionConfig, ObjectnessAttention)
 from member3_structure_preserving.line_art import (  # noqa: E402
     LineArtConfig, attention_from_map, draw_line_art, foreground_mask,
-    ink_masses, rescale_ink)
+    ink_masses, solve_ink_weights)
 
 #: The units that are produced, and the directory each one goes into.
 UNITS = ("line_attn", "line_attn_vote", "line_plain_total",
@@ -72,35 +72,64 @@ def render(image: np.ndarray, attention: np.ndarray,
         # The soft vote: every boundary is drawn, and its darkness is
         # decided by the attention of the regions on either side of it.
         # The strong/weak split is replaced by a continuous weight.
-        picture, mask, strength = draw_line_art(image, attention,
-                                                 config_line, gate=False)
-        # Re-weight by the attention of the neighbourhood.
         picture, mask, strength = _soft_vote(image, attention, config_line)
         total, inside = ink_masses(strength, mask, object_mask)
         return picture, {"total_ink": total, "foreground_ink": inside}
-
-    # The two matched controls.  The gated drawing is the reference: the
-    # control is rescaled to match it on the agreed measure.
+    # The two matched controls.  The gated drawing is the reference, and
+    # the control is built to match it on the agreed measure.
+    #
+    # The control must hold the ink mass fixed *without* touching the
+    # relative weight of the object's outline against the background
+    # lines, because that relative weight is the thing the gate
+    # changes.  A uniform rescale would move the foreground ink as a
+    # side effect, and the two controls would then be the same image.
+    # So the control solves for the two weights instead.
     gated, gated_mask, gated_strength = draw_line_art(
         image, attention, config_line, gate=True)
     total, inside = ink_masses(gated_strength, gated_mask, object_mask)
 
-    plain, plain_mask, plain_strength = draw_line_art(
+    # The ungated drawing, at unit weights: the object's outline at
+    # full strength and the background lines at the background strength.
+    _, plain_mask, plain_strength = draw_line_art(
         image, attention, config_line, gate=False)
 
     if unit == "line_plain_total":
-        scaled = rescale_ink(plain_strength, plain_mask, object_mask,
-                             target_total=total)
+        foreground_weight, background_weight = solve_ink_weights(
+            plain_strength, plain_mask, object_mask, target_total=total)
     else:
-        scaled = rescale_ink(plain_strength, plain_mask, object_mask,
-                             target_foreground=inside)
+        foreground_weight, background_weight = solve_ink_weights(
+            plain_strength, plain_mask, object_mask,
+            target_foreground=inside)
 
-    picture = np.full_like(image, 255)
+    _, scaled_mask, scaled = draw_line_art(
+        image, attention, config_line, gate=False,
+        foreground_weight=foreground_weight,
+        background_weight=background_weight)
+
+    picture = render_from_strength(image, scaled)
     drawn = scaled > 0.05
-    picture[drawn] = (image[drawn].astype(np.float32) * 0.25).astype(np.uint8)
     new_total, new_inside = ink_masses(scaled, drawn, object_mask)
     return picture, {"total_ink": new_total, "foreground_ink": new_inside,
-                     "gated_total_ink": total, "gated_foreground_ink": inside}
+                     "gated_total_ink": total, "gated_foreground_ink": inside,
+                     "foreground_weight": foreground_weight,
+                     "background_weight": background_weight}
+
+
+def render_from_strength(image: np.ndarray, strength: np.ndarray) -> np.ndarray:
+    """The drawing that a strength map stands for.
+
+    The ink's darkness *is* the strength: the picture is white paper
+    with the line drawn on it, and the line is as dark as its strength
+    says.  This is the same rule that ``draw_line_art`` applies, put in
+    one place so that a drawing built from a *rescaled* strength map
+    looks the way its map says it should.
+    """
+    picture = np.full_like(image, 255)
+    drawn = strength > 0.05
+    ink = 255.0 * (1.0 - strength)
+    picture[drawn] = np.clip(ink[drawn][:, None].repeat(3, axis=1),
+                             0, 255).astype(np.uint8)
+    return picture
 
 
 def _soft_vote(image: np.ndarray, attention: np.ndarray,
@@ -155,8 +184,7 @@ def _soft_vote(image: np.ndarray, attention: np.ndarray,
         strength = dilated
 
     mask = strength > 0.05
-    picture = np.full_like(image, 255)
-    picture[mask] = (image[mask].astype(np.float32) * 0.25).astype(np.uint8)
+    picture = render_from_strength(image, strength)
     return picture, mask, strength
 
 
@@ -214,11 +242,24 @@ def main():
         for unit in UNITS:
             picture, values = render(pixels, gate, line_config, unit)
             stem = Path(relative).stem
-            out = root / unit / "images" / "photo" / class_name / f"{stem}.jpg"
+            # The drawings are saved as PNG, not JPEG.  A line drawing is
+            # mostly white paper with a few dark strokes, and JPEG's
+            # chroma subsampling and quantisation alter the darkness of
+            # those strokes -- which is exactly the quantity the two
+            # controls are matched on.  A lossy round trip would leave
+            # the matched controls off by tens of percent.
+            out = root / unit / "images" / "photo" / class_name / f"{stem}.png"
             out.parent.mkdir(parents=True, exist_ok=True)
-            Image.fromarray(picture).save(out, quality=95)
-            key = f"aug_sp/lineart/{unit}/images/photo/{class_name}/{stem}.jpg"
-            manifests[unit].append(f"{key} 1 {relative} {class_name}")
+            Image.fromarray(picture).save(out, optimize=True)
+            key = f"aug_sp/lineart/{unit}/images/photo/{class_name}/{stem}.png"
+            # The manifest layout is ``path label original style [alpha]``.
+            # A line drawing carries no style image, so the style column
+            # holds the placeholder ``none`` -- exactly as the
+            # data-volume controls do.  The class name is *not* a style:
+            # writing it there would make the fairness checker compare
+            # the class names against the style pool and reject the
+            # manifest.
+            manifests[unit].append(f"{key} 1 {relative} none")
             for name in ("total_ink", "foreground_ink"):
                 if name in values:
                     stats[unit][name].append(values[name])

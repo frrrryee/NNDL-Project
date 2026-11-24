@@ -171,7 +171,9 @@ def boundary_map(labels: np.ndarray) -> np.ndarray:
 
 
 def draw_line_art(image: np.ndarray, attention: np.ndarray,
-                  config: LineArtConfig, gate: bool = True
+                  config: LineArtConfig, gate: bool = True,
+                  foreground_weight: float | None = None,
+                  background_weight: float | None = None
                   ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Render the line drawing of an image.
 
@@ -186,6 +188,16 @@ def draw_line_art(image: np.ndarray, attention: np.ndarray,
 
     When ``gate`` is false every boundary is drawn at the same darkness,
     which is the ungated reference.
+
+    ``foreground_weight`` and ``background_weight`` override the
+    strength of the two kinds of boundary.  They are *multipliers* on
+    the configured strengths, so a weight of one reproduces the
+    reference drawing and a weight of two doubles the ink of that
+    kind of boundary.  They exist so that the matched controls can hold
+    the ink mass fixed *by changing the relative weight of the object's
+    outline against the background lines*, rather than by scaling the
+    whole drawing: a uniform scaling would change the foreground ink as
+    a side effect, and the two controls would then be the same image.
     """
     labels = superpixel_labels(image, config)
     attention = np.clip(attention, 0.0, 1.0)
@@ -208,18 +220,24 @@ def draw_line_art(image: np.ndarray, attention: np.ndarray,
         down = labels[np.minimum(ys + 1, height - 1), xs]
         side = np.maximum(np.maximum(region[left], region[right]),
                           np.maximum(region[up], region[down]))
+        is_foreground = side >= config.foreground_threshold
+
         if gate:
-            is_foreground = side >= config.foreground_threshold
-            strength = np.where(
-                is_foreground, config.foreground_strength,
-                config.background_strength)
-            # A boundary that touches a foreground region on either side
-            # is drawn fully; the rest fades out with the attention.
+            # The gated drawing: the object's outline is drawn at full
+            # strength and the background lines fade out with the
+            # attention.
             strength = np.where(
                 is_foreground, config.foreground_strength,
                 config.background_strength * side)
         else:
-            strength = np.full_like(side, config.foreground_strength)
+            # The ungated reference: every boundary is drawn at the same
+            # darkness, unless the caller overrides the two weights.
+            # The weights are multipliers on the configured strengths.
+            foreground = config.foreground_strength * (
+                1.0 if foreground_weight is None else foreground_weight)
+            background = config.background_strength * (
+                1.0 if background_weight is None else background_weight)
+            strength = np.where(is_foreground, foreground, background)
         drawing[ys, xs] = np.clip(strength, 0.0, 1.0)
 
     # Dilate the boundary to the requested line width.
@@ -238,9 +256,22 @@ def draw_line_art(image: np.ndarray, attention: np.ndarray,
 
     mask = drawing > 0.05
     picture = np.full_like(image, 255)
-    picture[mask] = (image[mask].astype(np.float32) * 0.25).astype(np.uint8)
+    # The ink's darkness *is* the strength: the picture is white paper
+    # with the line drawn on it, and the line is as dark as its
+    # strength says.  This keeps the saved picture and the strength map
+    # in exact correspondence, so the ink mass of a drawing can be
+    # recovered from the picture alone.
+    #
+    # The obvious alternative -- darkening the source colour instead --
+    # would make the darkness depend on the colour of the object as
+    # well as on the strength, and the two ink-matched controls are
+    # matched on the strength.  The two quantities would then differ,
+    # and the controls would be matched on something the training never
+    # sees.
+    ink = 255.0 * (1.0 - drawing)
+    picture[mask] = np.clip(ink[mask][:, None].repeat(3, axis=1),
+                            0, 255).astype(np.uint8)
     return picture, mask, drawing
-
 
 def attention_from_map(attention: torch.Tensor, height: int, width: int,
                        sigma: float) -> np.ndarray:
@@ -299,6 +330,52 @@ def ink_masses(drawing: np.ndarray, mask: np.ndarray,
     return total, inside
 
 
+def solve_ink_weights(drawing: np.ndarray, mask: np.ndarray,
+                      foreground: np.ndarray, target_total: float | None = None,
+                      target_foreground: float | None = None
+                      ) -> tuple[float, float]:
+    """The foreground and background weights that match a target ink mass.
+
+    The matched control has to hold the ink mass fixed *without*
+    changing the relative weight of the object's outline against the
+    background lines, because that relative weight is the very thing
+    the gate changes.  A uniform rescaling would change it, so the
+    control is built by solving for the two weights instead.
+
+    With ``target_total`` both weights are scaled by the same factor,
+    so the total ink matches and the foreground-to-background ratio is
+    the control's own.  With ``target_foreground`` only the foreground
+    weight is adjusted and the background keeps its weight, so the
+    object's outline carries the same ink as in the gated drawing while
+    the background lines are free to differ.
+
+    The two weights are returned rather than the drawing, because the
+    drawing is produced by the caller, which knows how the weights
+    enter the rendering.  They are multipliers on the configured
+    strengths.
+    """
+    inside_mask = mask & foreground
+    outside_mask = mask & ~foreground
+    # The ink that the foreground lines and the background lines carry
+    # in the drawing as it stands.
+    foreground_mass = float(drawing[inside_mask].sum())
+    background_mass = float(drawing[outside_mask].sum())
+
+    if target_total is not None:
+        if foreground_mass + background_mass <= 1e-6:
+            return 1.0, 1.0
+        factor = target_total / (foreground_mass + background_mass)
+        return factor, factor
+
+    if target_foreground is not None:
+        if foreground_mass <= 1e-6:
+            return 1.0, 1.0
+        factor = target_foreground / foreground_mass
+        return factor, 1.0
+
+    return 1.0, 1.0
+
+
 def rescale_ink(drawing: np.ndarray, mask: np.ndarray,
                 foreground: np.ndarray, target_total: float | None = None,
                 target_foreground: float | None = None) -> np.ndarray:
@@ -312,6 +389,10 @@ def rescale_ink(drawing: np.ndarray, mask: np.ndarray,
     The scale factor is clipped to a sane range: an extreme factor would
     make the control either invisible or solid black, and neither would
     be a meaningful control.
+
+    This function is the *uniform* rescale.  The matched controls of the
+    line-art family are built with :func:`solve_ink_weights` instead,
+    because a uniform rescale moves the foreground ink as a side effect.
     """
     if target_total is None and target_foreground is None:
         return drawing

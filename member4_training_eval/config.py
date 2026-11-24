@@ -90,6 +90,50 @@ FOREGROUND_CENTER_GROUP = "ours_fg_center"
 FOREGROUND_CENTER_KIND = "center"
 FOREGROUND_CENTER_MANIFEST = "aug_sp/fgcenter/manifest_ours.txt"
 
+#: The matched control *of* the centre prior.
+#:
+#: It is the same pipeline with a uniform map whose strength is the mean
+#: of the centre-prior alpha field, so comparing against it isolates what
+#: the spatial modulation contributes and nothing else.  It is required
+#: rather than optional: the centre prior covers 34% of the pixels, so
+#: its alpha field (0.3068) is well below the Sobel one (0.3736) and a
+#: comparison across groups would otherwise be confounded with the
+#: amount of style applied.
+FOREGROUND_CENTER_MATCHED_GROUP = "ours_fg_center_matched"
+FOREGROUND_CENTER_MATCHED_MANIFEST = \
+    "aug_sp/fgcenter/manifest_adain_matched.txt"
+
+# ----------------------------------------------------------- line art ----
+#: The line-art family: four units built by ``build_line_art_sets.py``.
+#:
+#: Two are the method and two are its controls.  The method applies the
+#: attention gate to the line width, so the strokes on the object are
+#: strong and the strokes on the background are faint.  The controls
+#: carry the *same ink* but distribute it differently, and the two of
+#: them differ in which quantity they hold fixed:
+#:
+#:   ``line_attn``           the attention gate
+#:   ``line_attn_vote``      the attention gate plus the superpixel soft vote
+#:   ``line_plain_total``    uniform strokes, total ink matched to the gate
+#:   ``line_plain_foreground`` uniform strokes, foreground ink matched to the gate
+#:
+#: The two controls are matched against *different* members of the pair,
+#: and that is the point: matching the total ink isolates where the ink
+#: sits, and matching the foreground ink isolates how much of the ink
+#: falls on the object.  Each control therefore answers a different
+#: question, and together they separate "the gate moves the ink onto the
+#: object" from "the gate merely adds ink".
+LINE_ART_UNITS = ("line_attn", "line_attn_vote",
+                  "line_plain_total", "line_plain_foreground")
+
+#: The group name of each line-art unit, with its manifest.
+LINE_ART_GROUPS = {
+    "ours_line_attn": "aug_sp/lineart/line_attn/manifest_ours.txt",
+    "ours_line_vote": "aug_sp/lineart/line_attn_vote/manifest_ours.txt",
+    "ours_line_plain_total": "aug_sp/lineart/line_plain_total/manifest_ours.txt",
+    "ours_line_plain_fg": "aug_sp/lineart/line_plain_foreground/manifest_ours.txt",
+}
+
 #: Every group that is a repaired modulation of the style strength.  Each
 #: one is a different map and therefore a different method, with its own
 #: fingerprint, manifest and section in the report.
@@ -97,14 +141,16 @@ FOREGROUND_GROUPS = (FOREGROUND_GROUP, FOREGROUND_CENTER_GROUP)
 
 GROUPS = ("original", "adain", "adain_matched", "ours", "ours_equal",
           "duplicate", "nonstyle", "mixstyle", FOREGROUND_GROUP,
-          FOREGROUND_CENTER_GROUP)
+          FOREGROUND_CENTER_GROUP, FOREGROUND_CENTER_MATCHED_GROUP,
+          *LINE_ART_GROUPS)
 # Groups whose training set is the original Photo images plus one styled
 # (or controlled) image per original, taken from that group's manifest.
 AUGMENTED_GROUPS = ("adain", "adain_matched", "ours", "ours_equal",
-                    "duplicate", "nonstyle")# Groups whose manifest has no style image.  Their manifests carry the
+                    "duplicate", "nonstyle", FOREGROUND_CENTER_MATCHED_GROUP,
+                    *LINE_ART_GROUPS)# Groups whose manifest has no style image.  Their manifests carry the
 # placeholder ``none`` in the style column, so the fairness checker must not
 # compare them against the frozen style pool or the content-style pairing.
-NO_STYLE_GROUPS = ("duplicate", "nonstyle")
+NO_STYLE_GROUPS = ("duplicate", "nonstyle", *LINE_ART_GROUPS)
 # The manifest of every augmented group, relative to the data root.  The
 # sweep uses this table; ``run_all.py`` can still override it with
 # ``--aug-manifest``.
@@ -117,6 +163,8 @@ GROUP_MANIFESTS = {
     "nonstyle": "augmented/manifest_nonstyle.txt",
     FOREGROUND_GROUP: FOREGROUND_MANIFEST,
     FOREGROUND_CENTER_GROUP: FOREGROUND_CENTER_MANIFEST,
+    FOREGROUND_CENTER_MATCHED_GROUP: FOREGROUND_CENTER_MATCHED_MANIFEST,
+    **LINE_ART_GROUPS,
 }
 
 SPLIT_FILES = {
@@ -404,8 +452,8 @@ def foreground_center_config_hash() -> str:
     The map selection chose the centre prior over the spectral residual
     on the mechanism criterion, by a factor of thirty.  It is a
     different map and therefore a different method, so it carries its
-    own fingerprint: pooling it with the spectral variant would hide
-    exactly the comparison that decided the choice.
+   own fingerprint: pooling it with the spectral variant would hide
+   exactly the comparison that decided the choice.
     """
     payload = {
         "base": config_hash(),
@@ -413,6 +461,84 @@ def foreground_center_config_hash() -> str:
         "foreground_kind": FOREGROUND_CENTER_KIND,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def foreground_center_matched_config_hash() -> str:
+    """The fingerprint of the matched control *of* the centre prior.
+
+    It is a uniform map, so the map alone does not distinguish it from
+    the centre prior it controls -- and it must not be given the main
+    fingerprint either, or it would be indistinguishable from the Sobel
+    group.  The record therefore names both the map it belongs to and
+    the fact that the map was flattened.
+    """
+    payload = {
+        "base": config_hash(),
+        "modulation": "foreground",
+        "foreground_kind": FOREGROUND_CENTER_KIND,
+        "uniform": True,
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def line_art_config_hash(unit: str, manifest: Path | None = None) -> str:
+    """The fingerprint of one line-art unit.
+
+    The line-art family is a different method from the AdaIN style
+    transfer: the images are line drawings rather than stylised
+    photographs, so a line-art run must never be pooled with the main
+    groups.  The unit is part of the fingerprint because the four units
+    differ in exactly the thing the experiment turns on -- where the
+    ink is and how much of it there is.
+
+    The *data* is part of the fingerprint as well.  The line-art units
+    were rebuilt after the matched controls were found to be degenerate,
+    and a run that trained on the old images must not be reused for the
+    new ones: the fingerprint of the training protocol alone would be
+    identical, and the reuse check would happily keep the stale result.
+    The data fingerprint is the hash of the manifest, which names every
+    image the run saw.
+    """
+    payload = {
+        "base": config_hash(),
+        "method": "line-art",
+        "unit": unit,
+        "data": manifest_fingerprint(manifest),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def manifest_fingerprint(manifest: Path | None) -> str | None:
+    """The hash of a manifest's contents.
+
+    The manifest names every image the run trains on, so its hash
+    changes whenever the data does.  The file's own modification time
+    is deliberately not used: it changes when a file is rewritten with
+    the same content, which would invalidate every run for no reason.
+    """
+    if manifest is None:
+        return None
+    manifest = Path(manifest)
+    if not manifest.is_file():
+        return None
+    digest = hashlib.sha256()
+    digest.update(manifest.read_bytes())
+    return digest.hexdigest()[:12]
+
+
+def line_art_unit_of_group(group: str) -> str | None:
+    """The line-art unit that a group name stands for.
+
+    The mapping is by unit name, so the group name and the unit it
+    refers to cannot drift apart.
+    """
+    units = {
+        "ours_line_attn": "line_attn",
+        "ours_line_vote": "line_attn_vote",
+        "ours_line_plain_total": "line_plain_total",
+        "ours_line_plain_fg": "line_plain_foreground",
+    }
+    return units.get(group)
 
 
 def foreground_kind_of_manifest(manifest: Path | None) -> str | None:
@@ -457,6 +583,11 @@ def config_hash_for_group(group: str, manifest: Path | None = None) -> str:
     """
     if group == MIXSTYLE_GROUP:
         return mixstyle_config_hash()
+    if group == FOREGROUND_CENTER_MATCHED_GROUP:
+        return foreground_center_matched_config_hash()
+    unit = line_art_unit_of_group(group)
+    if unit is not None:
+        return line_art_config_hash(unit, manifest)
     if group in FOREGROUND_GROUPS:
         kind = foreground_kind_of_manifest(manifest)
         if kind is None:
@@ -512,6 +643,11 @@ def canonical_hash_of_run(run_dir: Path) -> None | str:
         return config_hash_of(recorded)
     if group is not None:
         manifest = payload.get("aug_manifest")
+        if group == FOREGROUND_CENTER_MATCHED_GROUP:
+            return foreground_center_matched_config_hash()
+        unit = line_art_unit_of_group(group)
+        if unit is not None:
+            return line_art_config_hash(unit, manifest)
         if group in FOREGROUND_GROUPS:
             kind = foreground_kind_of_manifest(
                 Path(manifest) if manifest else None)
