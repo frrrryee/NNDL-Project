@@ -368,3 +368,11 @@ repo/member4_training_eval/
 ---
 
 *文档维护：`repo/report/sections/` 下对应的 LaTeX 片段由 `make_line_art_text.py` 生成，不手工编辑。*
+
+---
+
+## 附：相关事故记录
+
+2026-11-24 启动中心先验增强集时，错误的 cell tag 使其覆盖了共享目录里的原 Sobel 数据集。已逐字节重建并验证与旧代码产物一致，主表结果未受影响。
+
+详见 `repo/docs/incident_2026-11-24_center_overwrite.md`。

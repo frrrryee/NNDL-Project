@@ -255,8 +255,10 @@ BATCHES = {
     "mixstyle": {"mixstyle": None},
     # the repaired modulation: a different method, its own fingerprint.
     # It is reported in its own subsection and never pooled with the main
-    # groups.
+    # groups.  The centre prior is a separate batch: it is the map that
+    # won the selection, and it is a different method again.
     "foreground": {config.FOREGROUND_GROUP: None},
+    "foreground_center": {config.FOREGROUND_CENTER_GROUP: None},
 }
 
 
