@@ -136,10 +136,10 @@ def main():
                                               line_config.smooth_sigma)
             sobel = sobel_map(pixels)
 
-            drawing, _mask = draw_line_art(pixels, gate_map, line_config,
-                                           gate=True)
-            plain, _plain_mask = draw_line_art(pixels, gate_map, line_config,
-                                               gate=False)
+            drawing, _mask, _strength = draw_line_art(
+                pixels, gate_map, line_config, gate=True)
+            plain, _plain_mask, _plain_strength = draw_line_art(
+                pixels, gate_map, line_config, gate=False)
 
             coverage = float((gate_map >= line_config.foreground_threshold).mean())
             sobel_coverage = float((sobel >= 0.5).mean())

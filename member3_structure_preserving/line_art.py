@@ -172,13 +172,20 @@ def boundary_map(labels: np.ndarray) -> np.ndarray:
 
 def draw_line_art(image: np.ndarray, attention: np.ndarray,
                   config: LineArtConfig, gate: bool = True
-                  ) -> tuple[np.ndarray, np.ndarray]:
+                  ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Render the line drawing of an image.
 
     ``image`` is an HxWx3 uint8 array and ``attention`` an HxW float
-    array in [0,1].  The first result is the drawing, the second the
-    mask of the drawn pixels.  When ``gate`` is false every boundary is
-    drawn at the same darkness, which is the strength-matched control.
+    array in [0,1].  The results are the drawing, the mask of the drawn
+    pixels, and the *strength map* -- the darkness of each drawn pixel
+    before it is turned into ink.
+
+    The strength map is returned because the ink mass has to be measured
+    to build the strength-matched control, and the darkness of a faint
+    line cannot be recovered from the finished picture.
+
+    When ``gate`` is false every boundary is drawn at the same darkness,
+    which is the ungated reference.
     """
     labels = superpixel_labels(image, config)
     attention = np.clip(attention, 0.0, 1.0)
@@ -232,7 +239,7 @@ def draw_line_art(image: np.ndarray, attention: np.ndarray,
     mask = drawing > 0.05
     picture = np.full_like(image, 255)
     picture[mask] = (image[mask].astype(np.float32) * 0.25).astype(np.uint8)
-    return picture, mask
+    return picture, mask, drawing
 
 
 def attention_from_map(attention: torch.Tensor, height: int, width: int,
@@ -248,3 +255,95 @@ def attention_from_map(attention: torch.Tensor, height: int, width: int,
                           align_corners=False)
     array = _blur(array, sigma).clamp(0, 1)
     return array.reshape(height, width).numpy()
+
+
+# ---------------------------------------------------------------------------
+# The strength-matched controls
+# ---------------------------------------------------------------------------
+#
+# The gated drawing and the uniform drawing do not carry the same amount
+# of ink: the gate fades the background lines out, so the gated drawing
+# has less ink in total but more in the foreground.  A control that
+# differs in ink mass confounds "the gate helps" with "less ink is
+# easier to learn", so the control has to be matched on ink.
+#
+# Two matchings are produced, because they exclude different confounds:
+#
+# ``total``
+#     The total ink mass is equal.  This excludes "less ink is easier to
+#     learn" outright -- including the possibility that the gate helps
+#     merely by thinning the image out.
+#
+# ``foreground``
+#     The ink mass inside the object is equal.  The background lines are
+#     free to differ.  This excludes the narrower confound "the gate
+#     helped by drawing the object's outline more heavily", which is the
+#     confound the gate is *meant* to introduce.
+#
+# Neither matching is the "right" one on its own: the total matching
+# equalises something the gate deliberately changes, and the foreground
+# matching lets a difference in background ink through.  Reporting both
+# makes the gate's effect interpretable either way.
+
+def ink_masses(drawing: np.ndarray, mask: np.ndarray,
+               foreground: np.ndarray) -> tuple[float, float]:
+    """The total ink mass and the ink mass inside the object.
+
+    ``drawing`` is the HxW strength map, ``mask`` the pixels that were
+    drawn on, and ``foreground`` a boolean map of the object.  The mass
+    of a pixel is its strength: a faint line contributes less than a
+    dark one.
+    """
+    total = float(drawing[mask].sum())
+    inside = float(drawing[mask & foreground].sum())
+    return total, inside
+
+
+def rescale_ink(drawing: np.ndarray, mask: np.ndarray,
+                foreground: np.ndarray, target_total: float | None = None,
+                target_foreground: float | None = None) -> np.ndarray:
+    """Rescale a drawing so that its ink mass matches a target.
+
+    With ``target_total`` the whole drawing is scaled by one factor, so
+    both the object's outline and the background lines keep their
+    relative weights.  With ``target_foreground`` only the object's
+    outline is scaled and the background lines are left alone.
+
+    The scale factor is clipped to a sane range: an extreme factor would
+    make the control either invisible or solid black, and neither would
+    be a meaningful control.
+    """
+    if target_total is None and target_foreground is None:
+        return drawing
+    total, inside = ink_masses(drawing, mask, foreground)
+    if target_total is not None:
+        if total <= 1e-6:
+            return drawing
+        factor = target_total / total
+    else:
+        if inside <= 1e-6:
+            return drawing
+        factor = target_foreground / inside
+    factor = float(np.clip(factor, 0.05, 20.0))
+    scaled = drawing * factor
+    return np.clip(scaled, 0.0, 1.0)
+
+
+def foreground_mask(attention: np.ndarray,
+                    config: LineArtConfig) -> np.ndarray:
+    """The pixels that count as the object.
+
+    The object is where the attention is above the threshold, smoothed
+    and then closed, so that a hole inside the object does not split it.
+    """
+    binary = (attention >= config.foreground_threshold)
+    if not binary.any():
+        return binary
+    try:
+        from scipy.ndimage import binary_closing, binary_dilation
+    except ImportError:  # pragma: no cover
+        return binary
+    radius = max(1, int(round(config.smooth_sigma)))
+    closed = binary_closing(binary, iterations=2)
+    grown = binary_dilation(closed, iterations=max(1, radius // 4))
+    return grown
