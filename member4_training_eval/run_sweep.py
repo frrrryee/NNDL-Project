@@ -124,7 +124,13 @@ def train_and_evaluate(group: str, seed: int, tag_prefix: str | None = None,
 
     reusable = eval_file.is_file() and not force
     if reusable:
-        recorded = config.canonical_hash_of_run(run_dir)
+        # The comparison must be between the fingerprint the run recorded
+        # for itself and the fingerprint of the method that is about to
+        # be run.  The recorded value is the map-aware one; the canonical
+        # hash of the training block alone would not include the map, and
+        # comparing the two would make every repaired modulation look
+        # stale and trigger a pointless retrain.
+        recorded = config.run_fingerprint(run_dir)
         current = config.config_hash_for_group(group, manifest)
         if recorded is not None and recorded != current:
             print(f"    {tag}: stored result has config {recorded} != current "

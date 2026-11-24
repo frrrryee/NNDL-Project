@@ -74,14 +74,18 @@ def main():
 
     group = args.group
     manifest = None
-    if group is None:
-        summary_file = args.run / "train_summary.json"
-        if summary_file.is_file():
-            summary = json.loads(summary_file.read_text(encoding="utf-8"))
+    # The manifest is read from the run's own summary whatever the group
+    # is: a repaired modulation's fingerprint depends on the map, and the
+    # map is recorded with the manifest the run actually used.  Taking the
+    # group from the command line must not lose that.
+    summary_file = args.run / "train_summary.json"
+    if summary_file.is_file():
+        summary = json.loads(summary_file.read_text(encoding="utf-8"))
+        if group is None:
             group = summary.get("group")
-            recorded_manifest = summary.get("aug_manifest")
-            if recorded_manifest:
-                manifest = Path(recorded_manifest)
+        recorded_manifest = summary.get("aug_manifest")
+        if recorded_manifest:
+            manifest = Path(recorded_manifest)
     if group is None:
         group = "original"
 

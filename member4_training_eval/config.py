@@ -473,6 +473,22 @@ def config_hash_for_group(group: str, manifest: Path | None = None) -> str:
     return config_hash()
 
 
+def run_fingerprint(run_dir: Path) -> None | str:
+    """The fingerprint a run recorded for itself.
+
+    This is the string the run wrote into its own summary, which is the
+    fingerprint that includes everything that distinguishes the method --
+    the map, for a repaired modulation.  It is the value that a reuse
+    check must compare, because it answers "was this run produced by the
+    method I am about to run?".
+    """
+    summary = Path(run_dir) / "train_summary.json"
+    if not summary.is_file():
+        return None
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    return payload.get("config_hash")
+
+
 def canonical_hash_of_run(run_dir: Path) -> None | str:
     """Recompute the canonical hash of a run directory, or None if unknown.
 
