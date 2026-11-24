@@ -63,8 +63,25 @@ CLASSES = ("dog", "elephant", "giraffe", "guitar", "horse", "house", "person")
 # ``duplicate`` is a byte-identical copy, ``nonstyle`` is a generic
 # non-stylistic transform.  They separate "twice the rows" from "twice the
 # rows with a real appearance change" from "twice the rows with a style".
+# --------------------------------------------------------- repaired map ----
+# The repaired variant of the spatial modulation.  The blending formula is
+# unchanged -- the strength still falls where the modulation map is large --
+# but the map is an unsupervised foreground estimate instead of a soft Sobel
+# edge response.  The measurement in Section IV.E showed that the Sobel map
+# responds to background texture rather than to the object's outline, so
+# the original rule put the strongest style exactly on the class cue.
+#
+# This group is reported separately and never mixed into the main table: it
+# is a different method, so it carries its own fingerprint, exactly like
+# the MixStyle baseline.
+FOREGROUND_GROUP = "ours_fg"
+#: The foreground estimator that the repaired variant uses.
+FOREGROUND_KIND = "spectral_center"
+#: The manifest of the repaired variant, relative to the data root.
+FOREGROUND_MANIFEST = "aug_sp/foreground/manifest_ours.txt"
+
 GROUPS = ("original", "adain", "adain_matched", "ours", "ours_equal",
-          "duplicate", "nonstyle", "mixstyle")
+          "duplicate", "nonstyle", "mixstyle", FOREGROUND_GROUP)
 # Groups whose training set is the original Photo images plus one styled
 # (or controlled) image per original, taken from that group's manifest.
 AUGMENTED_GROUPS = ("adain", "adain_matched", "ours", "ours_equal",
@@ -84,22 +101,6 @@ GROUP_MANIFESTS = {
     "nonstyle": "augmented/manifest_nonstyle.txt",
 }
 
-# --------------------------------------------------------- repaired map ----
-# The repaired variant of the spatial modulation.  The blending formula is
-# unchanged -- the strength still falls where the modulation map is large --
-# but the map is an unsupervised foreground estimate instead of a soft Sobel
-# edge response.  The measurement in Section IV.E showed that the Sobel map
-# responds to background texture rather than to the object's outline, so
-# the original rule put the strongest style exactly on the class cue.
-#
-# This group is reported separately and never mixed into the main table: it
-# is a different method, so it carries its own fingerprint, exactly like
-# the MixStyle baseline.
-FOREGROUND_GROUP = "ours_fg"
-#: The foreground estimator that the repaired variant uses.
-FOREGROUND_KIND = "spectral_center"
-#: The manifest of the repaired variant, relative to the data root.
-FOREGROUND_MANIFEST = "aug_sp/foreground/manifest_ours.txt"
 SPLIT_FILES = {
     "photo_train": SPLIT_DIR / "photo_train.txt",
     "photo_val": SPLIT_DIR / "photo_val.txt",

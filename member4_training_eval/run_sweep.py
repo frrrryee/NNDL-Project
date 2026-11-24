@@ -256,6 +256,10 @@ BATCHES = {
              "ours_equal": None},
     # the MixStyle baseline: a different architecture, its own fingerprint
     "mixstyle": {"mixstyle": None},
+    # the repaired modulation: a different method, its own fingerprint.
+    # It is reported in its own subsection and never pooled with the main
+    # groups.
+    "foreground": {config.FOREGROUND_GROUP: None},
 }
 
 
