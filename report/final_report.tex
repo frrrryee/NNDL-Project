@@ -53,7 +53,6 @@ controlled comparison
 \section{Related Work}
 %==================================================
 
-\input{sections/member4_iia.tex}
 \input{sections/member2_iib.tex}
 \input{sections/member2_iic.tex}
 \input{sections/member3_iid.tex}
@@ -132,7 +131,7 @@ against the uniform AdaIN baseline.}
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{../figures/pacs_samples.png}
+\includegraphics[width=\textwidth,height=0.30\textheight,keepaspectratio]{../figures/pacs_samples.png}
 \caption{The four domains of PACS, one image per domain and class.  The
 photo domain is the only one available for training, and the three target
 domains differ from it in appearance far more than they differ from each
@@ -142,12 +141,12 @@ other.  This is the gap the augmentation is meant to close.}
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{../figures/failure_cases.pdf}
+\includegraphics[width=\textwidth,height=0.28\textheight,keepaspectratio]{../figures/failure_cases.pdf}
 \caption{Failure cases of the spatial modulation.  Each row gives, from
 left to right, the content image, the style reference, the structure map
 $M$, the strength field $\alpha$, the uniform AdaIN result and the result
-of the spatial modulation.  The twelve cases are the images with the
-smallest paired EdgeScore difference against the strength-matched uniform
+of the spatial modulation.  The cases are the images with the smallest
+paired EdgeScore difference against the strength-matched uniform
 control, selected over all 1{,}349 training images without reference to
 any target-domain accuracy.  The structure map responds strongly to the
 background texture, so the protection budget is spent on the background

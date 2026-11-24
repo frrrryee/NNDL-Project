@@ -25,16 +25,16 @@ $1.00$ & +AdaIN (matched) & $0.747$ & $50.5\pm1.6$ & 5 \\
 \end{tabular}
 \end{center}
 
-\paragraph{The modulation sweep.} Here the nominal strength is fixed at $\alpha_0 = 0.5$ and the modulation depth $\beta$ varies. At $\beta = 0$ the spatial variant degenerates to uniform AdaIN, so the sweep interpolates between the two extremes of the method. As $\beta$ grows, the modulation becomes stronger and the effective strength $\bar{\alpha}$ falls accordingly; the accuracy should follow the strength.
+\paragraph{The modulation sweep.} Here the nominal strength is fixed at $\alpha_0 = 0.5$ and the modulation depth $\beta$ varies. At $\beta = 0$ the spatial variant degenerates to uniform AdaIN, so the sweep interpolates between the two extremes of the method. As $\beta$ grows, the modulation becomes stronger and the effective strength $\bar{\alpha}$ falls accordingly; the accuracy should follow the strength. The Edge column is the edge retention of the generated set, and the last column is the difference between the spatial variant and the matched control at the same effective strength.
 
 \begin{center}
 \scriptsize
-\begin{tabular}{@{}llrrr@{}}
+\begin{tabular}{@{}llrrrr@{}}
 \toprule
-$\beta$ & configuration & $\bar{\alpha}$ & CrossAvg & $n$ \\
+$\beta$ & configuration & $\bar{\alpha}$ & CrossAvg & $n$ & Edge \\
 \midrule
-$0.00$ & +Ours (spatial) & $0.500$ & $47.5\pm0.9$ & 5 \\
-$0.00$ & +AdaIN (matched) & $0.500$ & $47.5\pm1.0$ & 5 \\
+$0.00$ & +Ours (spatial) & $0.500$ & $47.5\pm0.9$ & 5 & $0.3211$ \\
+$0.00$ & +AdaIN (matched) & $0.500$ & $47.5\pm1.0$ & 5 & $0.3211$ \\
 \bottomrule
 \end{tabular}
 \end{center}

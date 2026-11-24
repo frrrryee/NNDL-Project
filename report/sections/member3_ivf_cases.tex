@@ -10,8 +10,8 @@ shows what that failure looks like on individual images, because the
 aggregate statistics hide the shape of it.
 
 \paragraph{How the cases are chosen.}
-The twelve images of Fig.~\ref{fig:failure_cases} are not a hand-picked
-selection. They are the twelve images, out of all 1{,}349, with the
+The eight images of Fig.~\ref{fig:failure_cases} are not a hand-picked
+selection. They are the eight images, out of all 1{,}349, with the
 smallest paired EdgeScore difference between the spatial variant and the
 strength-matched uniform control: the cases on which the modulation does
 the most damage. The selection uses only image-level measurements, never a
@@ -43,16 +43,16 @@ difference of Section~\ref{sec:mechanism} is negative rather than merely
 insignificant.
 
 \paragraph{Where the failures concentrate.}
-The class distribution of the twelve worst cases is itself informative:
-five are \texttt{person} and four are \texttt{guitar}, the two classes with
-the lowest edge density in PACS. A \texttt{person} photograph is dominated
-by a textured background and a loosely bounded silhouette; a \texttt{guitar}
-photograph is dominated by a long, thin neck against a similarly textured
-background. Both are exactly the situations in which an edge response
-fails to separate the class-relevant contour from the rest of the image.
-The classes that the modulation handles best are the ones with a compact,
-high-contrast object and a plain background, which is the easy case for any
-edge-based prior.
+The class distribution of the worst cases is itself informative: five of
+the twelve most damaging images are \texttt{person} and four are
+\texttt{guitar}, the two classes with the lowest edge density in PACS. A
+\texttt{person} photograph is dominated by a textured background and a
+loosely bounded silhouette; a \texttt{guitar} photograph is dominated by a
+long, thin neck against a similarly textured background. Both are exactly
+the situations in which an edge response fails to separate the
+class-relevant contour from the rest of the image. The classes that the
+modulation handles best are the ones with a compact, high-contrast object
+and a plain background, which is the easy case for any edge-based prior.
 
 \paragraph{What the cases imply.}
 The failure is not a bug in the implementation: the $\beta = 0$ cell
