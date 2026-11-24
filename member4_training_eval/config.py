@@ -83,6 +83,23 @@ GROUP_MANIFESTS = {
     "duplicate": "augmented/manifest_duplicate.txt",
     "nonstyle": "augmented/manifest_nonstyle.txt",
 }
+
+# --------------------------------------------------------- repaired map ----
+# The repaired variant of the spatial modulation.  The blending formula is
+# unchanged -- the strength still falls where the modulation map is large --
+# but the map is an unsupervised foreground estimate instead of a soft Sobel
+# edge response.  The measurement in Section IV.E showed that the Sobel map
+# responds to background texture rather than to the object's outline, so
+# the original rule put the strongest style exactly on the class cue.
+#
+# This group is reported separately and never mixed into the main table: it
+# is a different method, so it carries its own fingerprint, exactly like
+# the MixStyle baseline.
+FOREGROUND_GROUP = "ours_fg"
+#: The foreground estimator that the repaired variant uses.
+FOREGROUND_KIND = "spectral_center"
+#: The manifest of the repaired variant, relative to the data root.
+FOREGROUND_MANIFEST = "aug_sp/foreground/manifest_ours.txt"
 SPLIT_FILES = {
     "photo_train": SPLIT_DIR / "photo_train.txt",
     "photo_val": SPLIT_DIR / "photo_val.txt",
@@ -338,10 +355,30 @@ def mixstyle_config_hash() -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
+def foreground_config_hash() -> str:
+    """The fingerprint of a repaired-modulation run.
+
+    The repaired variant changes the *augmentation*, not the training
+    protocol: the network, the optimiser and the step budget are the same
+    as for every other group.  It nevertheless gets its own fingerprint,
+    because it is a different method and must never be pooled with the
+    main groups.  The hash records which foreground estimator was used, so
+    two different repairs cannot be confused either.
+    """
+    payload = {
+        "base": config_hash(),
+        "modulation": "foreground",
+        "foreground_kind": FOREGROUND_KIND,
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+
+
 def config_hash_for_group(group: str) -> str:
     """The fingerprint that applies to a group."""
     if group == MIXSTYLE_GROUP:
         return mixstyle_config_hash()
+    if group == FOREGROUND_GROUP:
+        return foreground_config_hash()
     return config_hash()
 
 

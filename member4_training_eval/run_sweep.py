@@ -51,7 +51,10 @@ CROSS = ("art_painting_test", "cartoon_test", "sketch_test")
 
 def manifest_of(group: str) -> Path | None:
     """The manifest of a group, relative to the data root."""
-    relative = config.GROUP_MANIFESTS.get(group)
+    if group == config.FOREGROUND_GROUP:
+        relative = config.FOREGROUND_MANIFEST
+    else:
+        relative = config.GROUP_MANIFESTS.get(group)
     if relative is None:
         return None
     return config.DATA_ROOT / relative

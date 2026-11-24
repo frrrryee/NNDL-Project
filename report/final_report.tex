@@ -131,6 +131,18 @@ against the uniform AdaIN baseline.}
 
 \begin{figure*}[t]
 \centering
+\includegraphics[width=\textwidth,height=0.24\textheight,keepaspectratio]{../figures/beta_ablation.png}
+\caption{The modulation sweep.  Left: the measured effective strength falls
+as $\beta$ grows.  Middle: the edge retention rises, but the
+strength-matched uniform control retains \emph{more} edges than the spatial
+variant at every depth, so the rise is caused by the weaker style and not by
+the modulation.  Right: the classification accuracy of the two variants
+coincides at every depth.}
+\label{fig:beta_ablation}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
 \includegraphics[width=\textwidth,height=0.30\textheight,keepaspectratio]{../figures/pacs_samples.png}
 \caption{The four domains of PACS, one image per domain and class.  The
 photo domain is the only one available for training, and the three target

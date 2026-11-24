@@ -29,6 +29,27 @@ reduction of the style strength. That is a genuine failure of the stated
 mechanism, and it is consistent with the classification result: a
 mechanism that does not operate cannot produce an effect.
 
+The $\beta$ sweep makes the same point from the other direction, and more
+sharply. Increasing the modulation depth does raise the edge retention of
+the generated set, but it does so by removing style, not by protecting
+structure: at every depth above zero the \emph{uniform} control matched to
+the same effective strength retains \emph{more} edges than the spatial
+variant does (Section~\ref{sec:ablation}). The apparent benefit of a
+deeper modulation is entirely accounted for by the smaller amount of
+style applied, which is why the two configurations give the same
+classification accuracy.
+
+\paragraph{The conclusion does not depend on the style pool.}
+The ten style references are frozen for the whole study, so a reader may
+suspect that the result is an artefact of that particular set of paintings.
+It is not: retraining the spatial variant against each of two disjoint
+half-pools gives $43.2\%$ and $43.7\%$, against $45.2\%$ for the full
+pool (Section~\ref{sec:pool_sensitivity}). The two half-pools agree with
+each other to within the seed noise and both fall slightly below the full
+pool, and every configuration moves in the same direction when the pool is
+halved. Halving the pool removes style diversity, and the accuracy follows
+the diversity --- the same account as everywhere else in this study.
+
 \paragraph{Data volume is not free.}
 The +Duplicate control reaches $37.7\%$, which is \emph{below} the
 Original group's $40.8\%$: doubling the number of training rows with

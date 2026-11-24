@@ -17,12 +17,34 @@ def map_image(values: torch.Tensor) -> Image.Image:
     return Image.fromarray(array)
 
 
+def map_image_2d(values: torch.Tensor) -> Image.Image:
+    """A single-channel map rendered as grayscale.
+
+    ``map_image`` squeezes every leading dimension away, which is right
+    for a map that is known to have one channel but leaves a stray
+    singleton axis behind when the map comes from a batched computation.
+    This variant takes the first channel of the first batch element
+    explicitly, so it works for any shape.
+    """
+    array = values.detach().cpu()
+    if array.ndim == 4:
+        array = array[0, 0]
+    elif array.ndim == 3:
+        array = array[0] if array.shape[0] == 1 else array[0, 0]
+    elif array.ndim == 2:
+        pass
+    else:
+        raise ValueError(f"cannot render a map of shape {tuple(values.shape)}")
+    array = array.clamp(0, 1).mul(255).round().numpy().astype(np.uint8)
+    return Image.fromarray(array)
+
+
 def comparison_panel(result: StylizationResult, style_path: Path, alpha: float, beta: float) -> Image.Image:
     with Image.open(style_path) as source:
         style = source.convert("RGB")
     panels = [("Content", result.content), ("Style", style),
-              ("Structure M [0,1]", map_image(result.structure)),
-              (f"Alpha [0,1], base={alpha:g}", map_image(result.alpha_map))]
+              ("Structure M [0,1]", map_image_2d(result.structure)),
+              (f"Alpha [0,1], base={alpha:g}", map_image_2d(result.alpha_map))]
     if result.baseline is not None:
         panels.append(("Standard AdaIN", result.baseline))
     panels.append((f"Ours, beta={beta:g}", result.image))

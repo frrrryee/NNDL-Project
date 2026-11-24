@@ -23,8 +23,9 @@ import torch
 
 from member4_training_eval import config
 from member3_structure_preserving.analysis import (
-    StructureMetrics, comparison_panel, map_image, summarize,
+    StructureMetrics, comparison_panel, map_image, map_image_2d, summarize,
 )
+from member3_structure_preserving.foreground_map import ForegroundConfig
 from member3_structure_preserving.protocol import FrozenProtocol, sha256
 from member3_structure_preserving.structure_map import StructureConfig
 from member3_structure_preserving.stylizer import StructurePreservingStylizer
@@ -83,9 +84,15 @@ def _locations(args, data_root, alpha, beta):
     # the resume check would reject the second one).  The suffix keeps the
     # two experiments in separate directories while leaving the alpha/beta
     # values of the cell itself untouched.
-    if getattr(args, "cell_tag", None):
-        tag = f"{args.cell_tag}_{tag}"
+    cell_tag = getattr(args, "cell_tag", None)
+    if cell_tag:
+        tag = f"{cell_tag}_{tag}"
     if args.mode == "build" and not args.limit:
+        # The repaired modulation writes into its own directory, so that
+        # its manifest can never be confused with the original method's.
+        if cell_tag == "foreground":
+            root = data_root / "aug_sp" / "foreground"
+            return root, root / "manifest_ours.txt"
         root = data_root / "aug_sp"
         return root, root / "manifest_ours.txt"
     category = "sweeps" if args.mode == "sweep" else "previews"
@@ -164,16 +171,27 @@ def run(args):
         raise ValueError("a training content image is byte-identical to a frozen style")
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     metrics = StructureMetrics(args.lpips, device) if args.metrics else None
+    foreground = ForegroundConfig(
+        spectral_size=args.spectral_size, center_sigma=args.center_sigma,
+        center_weight=args.center_weight, smooth_sigma=args.foreground_blur_sigma)
     generator = StructurePreservingStylizer(
-        structure_config=structure, content_size=args.content_size,
+        structure_config=structure, foreground_config=foreground,
+        modulation=args.modulation, foreground_kind=args.foreground_kind,
+        content_size=args.content_size,
         style_size=args.style_size, device=device, weights_dir=args.weights_dir)
     fingerprints = _fingerprint_sources(args.weights_dir)
     diagnostics = args.mode == "samples" or args.diagnostics
     with_baseline = args.mode in ("samples", "sweep") or args.with_adain
     with_matched = args.with_matched
-    common = {"schema": 2, "method": "sobel-spatial-adain-v1", "mode": args.mode,
+    common = {"schema": 2,
+              "method": ("sobel-spatial-adain-v1" if args.modulation == "edge"
+                         else f"foreground-spatial-adain-v1/{args.foreground_kind}"),
+              "mode": args.mode,
               "partial": len(jobs) != len(protocol.rows), "count": len(jobs),
               "pool_hash": protocol.pool_hash, "inputs_sha256": input_hashes,
+              "modulation": args.modulation,
+              "foreground_kind": args.foreground_kind if args.modulation == "foreground" else None,
+              "foreground": foreground.to_dict() if args.modulation == "foreground" else None,
               "pool_manifest_sha256_lf": hashlib.sha256(
                   config.STYLE_POOL_MANIFEST.read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
               "split_sha256_lf": hashlib.sha256(protocol.split_file.read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
@@ -217,7 +235,11 @@ def run(args):
                    state.root / "photo_train.txt", state.root / "photo_train_partial.txt", state.root / "pairs.txt",
                    state.root / "manifest_adain_matched.txt"]
         if args.mode == "build" and not args.limit:
-            pending.append(protocol.data_root / "augmented" / "manifest_ours.txt")
+            # Only the original method's build owns the shared manifest
+            # under ``augmented/``; the repaired variant must leave it
+            # alone.
+            if getattr(args, "cell_tag", None) != "foreground":
+                pending.append(protocol.data_root / "augmented" / "manifest_ours.txt")
         for path in pending:
             if path.exists():
                 path.unlink()
@@ -245,8 +267,8 @@ def run(args):
             if with_matched:
                 _save_image(files["adain_matched"], result.matched_baseline)
             if diagnostics:
-                _save_image(files["structure"], map_image(result.structure))
-                _save_image(files["alpha"], map_image(result.alpha_map))
+                _save_image(files["structure"], map_image_2d(result.structure))
+                _save_image(files["alpha"], map_image_2d(result.alpha_map))
                 _save_image(files["comparison"], comparison_panel(result, job.style_path, state.alpha, state.beta))
             measurement = {"mean_alpha": float(result.alpha_map.mean())}
             baseline_measurement = {}
@@ -286,8 +308,13 @@ def run(args):
         _atomic_text(state.root / split_name, "\n".join(dataset_lines) + "\n")
         _atomic_text(state.root / "pairs.txt", "\n".join(pair_lines) + "\n")
         if args.mode == "build" and not args.limit:
-            _atomic_text(protocol.data_root / "augmented" / "manifest_ours.txt",
-                         "\n".join(ours_lines) + "\n")
+            # The original method's build also publishes the manifest under
+            # ``augmented/`` for the older members' scripts.  The repaired
+            # variant must not: it would overwrite the original method's
+            # manifest and make the two indistinguishable.
+            if getattr(args, "cell_tag", None) != "foreground":
+                _atomic_text(protocol.data_root / "augmented" / "manifest_ours.txt",
+                             "\n".join(ours_lines) + "\n")
         if adain_lines:
             _atomic_text(state.root / "manifest_adain.txt", "\n".join(adain_lines) + "\n")
         if matched_lines:
@@ -355,6 +382,24 @@ def parser():
                                   "The style-pool sensitivity experiment uses it to "
                                   "keep the half-pool runs apart from the full-pool "
                                   "run of the same alpha/beta values.")
+        command.add_argument("--modulation", choices=("edge", "foreground"), default="edge",
+                             help="what modulates the style strength. 'edge' is the "
+                                  "original soft Sobel response; 'foreground' is the "
+                                  "repaired variant, which uses an unsupervised "
+                                  "foreground estimate instead. The blending formula "
+                                  "is identical in both cases, so the comparison "
+                                  "isolates the map.")
+        command.add_argument("--foreground-kind", choices=("spectral", "center", "spectral_center"),
+                             default="spectral_center",
+                             help="which foreground estimator to use with --modulation foreground")
+        command.add_argument("--center-sigma", type=float, default=0.35,
+                             help="width of the Gaussian centre prior, as a fraction of the image")
+        command.add_argument("--center-weight", type=float, default=0.5,
+                             help="weight of the centre prior in the combined foreground map")
+        command.add_argument("--spectral-size", type=int, default=64,
+                             help="the size the image is reduced to before its spectrum is taken")
+        command.add_argument("--foreground-blur-sigma", type=float, default=4.0,
+                             help="blur applied to the foreground map, in pixels")
     return result
 
 

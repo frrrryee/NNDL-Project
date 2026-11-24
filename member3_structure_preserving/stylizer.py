@@ -9,6 +9,9 @@ import torch
 import torch.nn.functional as F
 
 from member2_adain.adain import AdaINModel, tensor_to_pil
+from member3_structure_preserving.foreground_map import (
+    ForegroundConfig, build_foreground_map,
+)
 from member3_structure_preserving.structure_map import (
     StructureConfig, build_structure_map, spatial_alpha,
 )
@@ -19,6 +22,8 @@ class PreparedContent:
     image: torch.Tensor
     features: torch.Tensor
     structure: torch.Tensor
+    #: The foreground map, when the foreground mode is active.
+    foreground: torch.Tensor | None = None
 
 
 @dataclass
@@ -31,13 +36,41 @@ class StylizationResult:
     baseline: Image.Image | None = None
     matched_baseline: Image.Image | None = None
     matched_alpha: float | None = None
+    #: The map that produced ``alpha_map``: the edge map or the foreground map.
+    modulation_map: torch.Tensor | None = None
 
 
 class StructurePreservingStylizer:
+    """Generate the styled images.
+
+    ``modulation`` selects what modulates the style strength:
+
+    ``edge``
+        The original method.  The map is a soft Sobel edge response, and
+        ``alpha = alpha0 (1 - beta M)`` reduces the strength where the
+        gradient is large.
+
+    ``foreground``
+        The repaired method.  The map is an unsupervised foreground
+        estimate, and the *same* formula reduces the strength where the
+        map is large -- which is now the object rather than the texture.
+        The formula is unchanged; only the map is different, so the
+        comparison between the two isolates the map.
+    """
+
     def __init__(self, model: AdaINModel | None = None,
-                 structure_config: StructureConfig | None = None, **model_options):
+                 structure_config: StructureConfig | None = None,
+                 foreground_config: ForegroundConfig | None = None,
+                 modulation: str = "edge",
+                 foreground_kind: str = "spectral_center",
+                 **model_options):
         self.model = model if model is not None else AdaINModel(**model_options)
         self.structure_config = structure_config or StructureConfig()
+        self.foreground_config = foreground_config or ForegroundConfig()
+        if modulation not in ("edge", "foreground"):
+            raise ValueError(f"unknown modulation: {modulation}")
+        self.modulation = modulation
+        self.foreground_kind = foreground_kind
         self._style_cache: dict[Path, torch.Tensor] = {}
 
     @torch.no_grad()
@@ -45,7 +78,11 @@ class StructurePreservingStylizer:
         image = self.model.prepare_image(content, self.model.content_size).to(self.model.device)
         self._validate_image(image)
         structure = build_structure_map(image, self.structure_config)
-        return PreparedContent(image, self.model.encode(image), structure)
+        foreground = None
+        if self.modulation == "foreground":
+            foreground = build_foreground_map(image, self.foreground_kind,
+                                             self.foreground_config)
+        return PreparedContent(image, self.model.encode(image), structure, foreground)
 
     @staticmethod
     def _validate_image(image):
@@ -71,7 +108,12 @@ class StructurePreservingStylizer:
                alpha: float = 0.5, beta: float = 0.7,
                with_baseline: bool = False,
                with_matched: bool = False) -> StylizationResult:
-        alpha_map = spatial_alpha(content.structure, alpha, beta)
+        # The map that modulates the strength.  The formula is the same in
+        # both modes: the strength falls where the map is large.  Only the
+        # map differs, and that is what the comparison isolates.
+        modulation_map = (content.foreground if self.modulation == "foreground"
+                          else content.structure)
+        alpha_map = spatial_alpha(modulation_map, alpha, beta)
         # Area averaging preserves the contribution of narrow contours when
         # reducing the map to relu4_1 resolution. The equation is linear in M.
         feature_alpha = F.interpolate(alpha_map, size=content.features.shape[-2:], mode="area")
@@ -106,7 +148,8 @@ class StructurePreservingStylizer:
                 self.model.mix(content.features, style_features, matched_alpha)))
         return StylizationResult(image, tensor_to_pil(content.image),
                                  content.structure.cpu(), alpha_map.cpu(),
-                                 feature_alpha.cpu(), baseline, matched, matched_alpha)
+                                 feature_alpha.cpu(), baseline, matched, matched_alpha,
+                                 modulation_map.cpu() if modulation_map is not None else None)
 
     def stylize(self, content, style, alpha=0.5, beta=0.7, with_baseline=False,
                 with_matched=False):
