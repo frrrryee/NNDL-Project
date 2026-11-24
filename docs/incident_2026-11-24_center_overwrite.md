@@ -127,3 +127,59 @@ cell tag 原本只为子池实验设计（避免同 α/β 互相覆盖），语�
 3. **确定性检查要成为重建的前置步骤**，不能靠"生成器应该没问题"的假设
 
 以及最重要的一条：**这次能恢复，是因为生成器恰好是确定性的，而且旧代码的样本还留在磁盘上。** 这两件事都是运气，不能当作理所当然 —— 所以它们现在是脚本（`check_determinism.py`），而不是记忆。
+
+---
+
+# 附：同一轮发现的第二个问题 —— 地图没有进入指纹
+
+## 1. 问题
+
+事故恢复过程中做的**指纹隔离检查**暴露出一个独立的漏洞。
+
+地图选参要训练三个候选：`spectral`、`center`、`spectral_center`。三者都注册为 **`ours_fg` 同一个组**，只是 manifest 不同。
+
+而 `config_hash_for_group(group)` 过去只按**组名**分支：
+
+```python
+if group == FOREGROUND_GROUP:
+    return foreground_config_hash()      # 里面写死了 FOREGROUND_KIND
+```
+
+**结果**：三个候选记录了**完全相同**的指纹 `edf393267a50`。
+
+**这为什么严重**：指纹的作用是"两组只有在指纹相同时才能放在一起比"。选参的全部依据就是"center 比 spectral 好 33 倍"——这个比较恰恰被指纹掩盖了。如果谁按指纹把候选聚合，三个不同地图的结果会被**静默地当成同一个东西**。
+
+## 2. 修法
+
+指纹改为**从实际使用的 manifest 读出地图**，而不是从组名猜：
+
+```python
+def foreground_kind_of_manifest(manifest) -> str | None:
+    # 地图记录在生成器的 generation.json 里，与 manifest 相邻
+```
+
+于是三个候选各有独立指纹：
+
+| 候选 | 指纹 |
+|---|---|
+| `spectral` | `903db28e4008` |
+| `center` | `ad89a4f6694b` |
+| `spectral_center` | `f408dfbb918a` |
+
+调用链相应打通：`train.py` / `evaluate.py` / `run_sweep.py` / `canonical_hash_of_run` 全部改为传入 manifest。
+
+**读不出地图时拒绝编造**：`foreground_kind_of_manifest` 返回 `None` 时，`config_hash_for_group` 抛错而不是回退到组名声明的地图 —— 回退会**谎报**这次运行实际用的地图。
+
+## 3. 遗留
+
+选参阶段已跑完的 7 个 run（`fgsel_*`）记录的是**旧的、地图无关的**指纹 `edf393267a50`。它们的地图仍可从 manifest 恢复，所以不是错的，但**不能与不同地图的 run 混合聚合**。
+
+检查脚本 `check_fingerprint_isolation.py` 会把这些 run 标为 NOTE（陈旧但可恢复），而不是 FAIL —— 因为重跑它们来换一个指纹并不改变任何科学结论。
+
+## 4. 教训
+
+**指纹的字段必须覆盖"使这个方法成为这个方法"的全部要素。**
+
+`ours_fg` 的组名覆盖了"用前景图替代 Sobel 图"，但没有覆盖"用哪一种前景图"。组名是**方法族**的名字，不是**方法**的名字。凡是同一组名下会有多个变体的地方，指纹必须覆盖那个区分维度。
+
+这条与事故第一部分指向同一件事：**默认值是危险的**。组名是默认值，地图也是默认值，两个默认值一起把差异吞掉了。
