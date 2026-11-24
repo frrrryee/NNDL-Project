@@ -2,7 +2,7 @@
 \subsection{Ablation: Varying Strength and Modulation Separately}
 \label{sec:ablation}
 
-The main results compare a handful of configurations. The ablations below vary the two quantities of the method separately and over a grid, so that the conclusion does not rest on the choice of a single setting.
+The main results compare a handful of configurations. The ablations below vary the two quantities of the method separately and over a grid, so that the conclusion does not rest on the choice of a single setting.  The $\bar{\alpha}$ column is the *measured* mean strength of each configuration, read back from the generator's own record of the blending field it applied, not the nominal parameter.
 
 \paragraph{The strength sweep.} We vary the nominal strength $\alpha_0$ of the spatial variant while keeping the modulation depth at $\beta = 0.7$, and train the uniform AdaIN and the strength-matched uniform control at every level. The prediction of Section~\ref{sec:strength_energy} is that the accuracy follows the effective strength $\bar{\alpha}$ and that the three series lie on one curve.
 
@@ -12,10 +12,49 @@ The main results compare a handful of configurations. The ablations below vary t
 \toprule
 $\alpha_0$ & configuration & $\bar{\alpha}$ & CrossAvg & $n$ \\
 \midrule
-$0.25$ & +Ours (spatial) & 0.187 & $39.8\pm1.0$ & 5 \\
+$0.25$ & +Ours (spatial) & $0.187$ & $39.8\pm1.0$ & 5 \\
+$0.25$ & +AdaIN (uniform) & $0.250$ & $42.0\pm1.0$ & 5 \\
+$0.25$ & +AdaIN (matched) & $0.187$ & $40.9\pm0.9$ & 5 \\
+$0.75$ & +Ours (spatial) & $0.560$ & $47.8\pm1.5$ & 5 \\
+$0.75$ & +AdaIN (uniform) & $0.750$ & $51.1\pm2.3$ & 5 \\
+$0.75$ & +AdaIN (matched) & $0.560$ & $47.7\pm1.4$ & 5 \\
+$1.00$ & +Ours (spatial) & $0.747$ & $50.1\pm1.3$ & 5 \\
+$1.00$ & +AdaIN (uniform) & $1.000$ & $54.2\pm1.8$ & 5 \\
+$1.00$ & +AdaIN (matched) & $0.747$ & $50.5\pm1.6$ & 5 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
+\paragraph{The modulation sweep.} Here the nominal strength is fixed at $\alpha_0 = 0.5$ and the modulation depth $\beta$ varies. At $\beta = 0$ the spatial variant degenerates to uniform AdaIN, so the sweep interpolates between the two extremes of the method. As $\beta$ grows, the modulation becomes stronger and the effective strength $\bar{\alpha}$ falls accordingly; the accuracy should follow the strength.
+
+\begin{center}
+\scriptsize
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+$\beta$ & configuration & $\bar{\alpha}$ & CrossAvg & $n$ \\
+\midrule
+$0.00$ & +Ours (spatial) & $0.500$ & $47.5\pm0.9$ & 5 \\
+$0.00$ & +AdaIN (matched) & $0.500$ & $47.5\pm1.0$ & 5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{The style-pool sweep.} The ten style references are split into two disjoint half-pools of five, and the spatial variant is trained against each. If the result depended on the particular paintings in the pool, the two half-pools would differ noticeably.
 \label{sec:pool_sensitivity}
+
+\begin{center}
+\scriptsize
+\begin{tabular}{@{}llrr@{}}
+\toprule
+Style pool & configuration & CrossAvg & $n$ \\
+\midrule
+full (10 styles) & +Ours (spatial) & $45.2\pm1.2$ & 5 \\
+\midrule
+pool A & +Ours (spatial) & $43.2\pm1.6$ & 5 \\
+pool B & +Ours (spatial) & $43.7\pm1.1$ & 5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Figure~\ref{fig:pool_sensitivity} shows the same comparison with bootstrap intervals.  The two half-pools agree with each other to within the seed noise, and both fall slightly below the full pool: halving the pool removes style diversity, and the accuracy tracks that diversity rather than the modulation.  The comparison therefore does not rescue the spatial variant -- it moves every configuration in the same direction, which is what the strength account of Section~\ref{sec:strength_energy} predicts.
 

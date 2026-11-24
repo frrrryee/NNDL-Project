@@ -1,0 +1,65 @@
+﻿% Member 3 - final report, IV.E.1 Failure Cases
+% The numbers are read from figures/failure_cases/index.json, which is
+% written by member4_training_eval/make_failure_cases.py.
+\subsection{Failure Cases}
+\label{sec:failure_cases}
+
+The mechanism analysis of Section~\ref{sec:mechanism} established that the
+spatial modulation does not preserve structure selectively. This section
+shows what that failure looks like on individual images, because the
+aggregate statistics hide the shape of it.
+
+\paragraph{How the cases are chosen.}
+The twelve images of Fig.~\ref{fig:failure_cases} are not a hand-picked
+selection. They are the twelve images, out of all 1{,}349, with the
+smallest paired EdgeScore difference between the spatial variant and the
+strength-matched uniform control: the cases on which the modulation does
+the most damage. The selection uses only image-level measurements, never a
+target-domain accuracy, so no evaluation image influences it.
+
+\paragraph{What the panels show.}
+Each row of Fig.~\ref{fig:failure_cases} gives, from left to right, the
+content image, the style reference, the structure map $M$, the strength
+field $\alpha$, the uniform AdaIN result and the spatial result. The
+pattern is consistent across the rows, and it is not the pattern the method
+was designed to produce.
+
+The structure map responds strongly to the \emph{background} of these
+images: the foliage, the brickwork and the canvas texture of the paintings
+all produce large responses, while the object's own contour often does not
+stand out above them. Because $\alpha = \alpha_0(1-\beta M)$ treats every
+response alike, the modulation spends its protection budget on the
+background. The alpha map makes this visible directly: its dark bands
+follow the background texture rather than the outline of the object.
+
+The result is that the object's shape receives the full strength
+$\alpha_0 = 0.5$ in the places where it mattered most, while the
+background, which needed no protection, receives less. The matched
+uniform control, applying the same strength everywhere at the same mean,
+keeps more of the object's contour simply because it applies it
+uniformly. That is why the spatial variant's EdgeScore is \emph{lower}
+than the matched control's on these images, and it is why the aggregate
+difference of Section~\ref{sec:mechanism} is negative rather than merely
+insignificant.
+
+\paragraph{Where the failures concentrate.}
+The class distribution of the twelve worst cases is itself informative:
+five are \texttt{person} and four are \texttt{guitar}, the two classes with
+the lowest edge density in PACS. A \texttt{person} photograph is dominated
+by a textured background and a loosely bounded silhouette; a \texttt{guitar}
+photograph is dominated by a long, thin neck against a similarly textured
+background. Both are exactly the situations in which an edge response
+fails to separate the class-relevant contour from the rest of the image.
+The classes that the modulation handles best are the ones with a compact,
+high-contrast object and a plain background, which is the easy case for any
+edge-based prior.
+
+\paragraph{What the cases imply.}
+The failure is not a bug in the implementation: the $\beta = 0$ cell
+reproduces plain AdaIN byte for byte, so the generator does what it is
+told. It is a limitation of the \emph{prior}. A soft Sobel response is
+not a foreground mask, and the method's premise --- that a response
+magnitude identifies the structure worth protecting --- does not hold for
+the images where protection would matter most. Section~\ref{sec:negative_results}
+draws the consequence for the classification results; this section shows
+the mechanism behind it.
