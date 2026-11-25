@@ -41,7 +41,6 @@ def main():
     mix_hash = config.mixstyle_config_hash()
     repairs = {kind: config.foreground_config_hash(kind)
                for kind in ("spectral", "center", "spectral_center")}
-
     print()
     print("  main groups          ", main_hash)
     print("  mixstyle             ", mix_hash)
@@ -62,7 +61,6 @@ def main():
     problems = []
     stale = []
     seen = {}
-    main_steps = config.TOTAL_STEPS if hasattr(config, "TOTAL_STEPS") else 660
     for name in sorted(os.listdir(RUNS)):
         summary = os.path.join(RUNS, name, "train_summary.json")
         if not os.path.exists(summary):
@@ -81,10 +79,12 @@ def main():
         # smoke-test protocol carries the subset size in its fingerprint,
         # so it must not be compared with the full-protocol hash.
         #
-        # The MixStyle baseline changes the *architecture*, which is not
-        # part of the training block, so its canonical hash equals the
-        # main one; the distinction is carried by the MixStyle
-        # fingerprint, which is derived from it.
+        # Under the epoch-based protocol the step budget is derived from
+        # the size of the group's own training set, so the expectation is
+        # computed per group: an augmented group has a different budget
+        # from the Original group, and therefore a different canonical
+        # hash.  Comparing everything against one global hash would
+        # reject the runs that are correct.
         if isinstance(training, dict):
             canonical = config.config_hash_of(training)
             subset = training.get("subset_size") or 0
@@ -97,15 +97,19 @@ def main():
                     problems.append(
                         f"{name}: canonical hash {canonical} != {expected}")
             else:
-                if canonical != main_hash:
+                expected_protocol = config.config_hash_of(
+                    config.training_config(group, manifest))
+                if canonical != expected_protocol:
                     # A run with a different step budget is a deliberate
                     # diagnostic, not a member of the main protocol: it
                     # must not be pooled with the main groups, and its
                     # fingerprint says so.
                     budget = training.get("total_steps")
-                    if budget == main_steps:
+                    wanted = config.training_config(group, manifest).get("total_steps")
+                    if budget == wanted:
                         problems.append(
-                            f"{name}: canonical hash {canonical} != {main_hash}")
+                            f"{name}: canonical hash {canonical} != "
+                            f"{expected_protocol}")
 
         # The MixStyle fingerprint must be the one recorded for it.
         if group == config.MIXSTYLE_GROUP and stored != mix_hash:
@@ -123,7 +127,7 @@ def main():
                 problems.append(f"{name}: the map of manifest '{manifest}' "
                                 f"could not be read")
                 continue
-            expected = config.foreground_config_hash(kind)
+            expected = config.foreground_config_hash(kind, group, manifest)
             if stored != expected:
                 stale.append(f"{name}: recorded {stored} (map-blind) != "
                              f"{expected} for map '{kind}'")

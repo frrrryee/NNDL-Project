@@ -124,15 +124,34 @@ def train_and_evaluate(group: str, seed: int, tag_prefix: str | None = None,
 
     reusable = eval_file.is_file() and not force
     if reusable:
-        # The comparison must be between the fingerprint the run recorded
-        # for itself and the fingerprint of the method that is about to
-        # be run.  The recorded value is the map-aware one; the canonical
-        # hash of the training block alone would not include the map, and
-        # comparing the two would make every repaired modulation look
-        # stale and trigger a pointless retrain.
-        recorded = config.run_fingerprint(run_dir)
+        # Two different things have to match before a stored result may be
+        # reused, and they answer two different questions:
+        #
+        #   the *protocol* -- the hyper-parameters and the step budget.  The
+        #     stored training block is authoritative, so its canonical hash
+        #     is compared with the canonical hash of the training block this
+        #     group gets now.  Under the epoch-based protocol the budget
+        #     follows the size of the group's own data, so a run of the old
+        #     fixed-budget protocol is detected here and retrained.
+        #
+        #   the *method* -- the map of a repaired modulation, the manifest of
+        #     a line-art unit.  This is the fingerprint the run recorded for
+        #     itself, and it is what "was this run produced by the method I
+        #     am about to run?" means.
+        #
+        # The recorded value is the map-aware one; the canonical hash of the
+        # training block alone would not include the map, and comparing the
+        # two would make every repaired modulation look stale and trigger a
+        # pointless retrain.
         current = config.config_hash_for_group(group, manifest)
-        if recorded is not None and recorded != current:
+        recorded = config.run_fingerprint(run_dir)
+        protocol_ok = config.run_matches_protocol(run_dir, group, manifest)
+        if recorded is None or not protocol_ok:
+            print(f"    {tag}: stored result does not match the current "
+                  f"protocol (budget {config.total_steps_of_group(group, manifest)} "
+                  f"steps); retraining")
+            reusable = False
+        elif recorded != current:
             print(f"    {tag}: stored result has config {recorded} != current "
                   f"{current}; retraining")
             reusable = False
@@ -161,12 +180,13 @@ def train_and_evaluate(group: str, seed: int, tag_prefix: str | None = None,
 
 
 def write_summary(group: str, seeds: list[int], records: list[dict],
-                  tag_prefix: str | None = None) -> Path:
+                  tag_prefix: str | None = None,
+                  manifest: Path | None = None) -> Path:
     """Aggregate the per-seed records into ``summary_<group>.json``."""
     summary = {
         "group": group,
         "seeds": seeds,
-        "config_hash": config.config_hash(),
+        "config_hash": config.config_hash_for_group(group, manifest),
     }
     for split in ("photo_test",) + CROSS:
         values = [record[split] for record in records if split in record]
@@ -232,7 +252,7 @@ def run_group(group: str, seeds: list[int], force: bool = False,
     for seed in seeds:
         records.append(train_and_evaluate(group, seed, tag_prefix, force,
                                           manifest, env))
-    out = write_summary(group, seeds, records, tag_prefix)
+    out = write_summary(group, seeds, records, tag_prefix, manifest)
     elapsed = time.time() - started
     print(f"  wrote {out}  ({elapsed/60:.1f} min)")
 
@@ -306,7 +326,7 @@ def run_variant(group: str, seeds: list[int], tag_prefix: str,
     for seed in seeds:
         records.append(train_and_evaluate(group, seed, tag_prefix, force,
                                           manifest))
-    out = write_summary(group, seeds, records, tag_prefix)
+    out = write_summary(group, seeds, records, tag_prefix, manifest)
     elapsed = time.time() - started
     print(f"  wrote {out}  ({elapsed/60:.1f} min)")
 
@@ -493,6 +513,8 @@ def main() -> int:
         parser.error("one of --group, --batch or --sweep is required")
 
     print(f"config_hash: {config.config_hash()}")
+    print(f"epochs:      {config.ORIGINAL_EPOCHS} over each group's own data "
+          f"(batch {config.BATCH_SIZE})")
     print(f"data root:   {config.DATA_ROOT}")
     print(f"runs root:   {config.OUTPUT_ROOT}")
     print(f"seeds:       {args.seeds}")

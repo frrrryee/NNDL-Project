@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import torch
@@ -187,10 +188,68 @@ BATCH_SIZE = 64
 #: little RAM the batch can be run with fewer workers, which slows the
 #: loader down but keeps the machine alive.
 NUM_WORKERS = int(os.environ.get("NNDL_NUM_WORKERS", "4") or 4)
-# Same optimizer-step budget for every group: 30 nominal epochs over the
-# 1,349-image Original training set at batch size 64 (30 * ceil(1349/64)).
+#: The number of passes over the training set that every group gets.
+#:
+#: The step budget is *derived* from this number and from the size of the
+#: group's own training set, so that every group is trained for the same
+#: number of epochs instead of the same number of optimizer steps.
+#:
+#: It used to be the other way round: the budget was a fixed 660 steps
+#: (30 * ceil(1349/64), i.e. 30 epochs over the Original training set), and
+#: every group received exactly those 660 steps whatever its dataset size.
+#: The Original group has 1,349 images and therefore saw 31.3 epochs, while
+#: every augmented group has 2,698 images (the originals plus one styled
+#: image each) and therefore saw only 15.7 epochs.  The augmented groups
+#: were therefore under-trained by half, and the comparison between them
+#: and the Original one was not a comparison of methods but of methods *and*
+#: training budgets.
+#:
+#: The duplicated group is the clean proof that this was a real handicap
+#: and not a theoretical one: it holds the *original* images and their
+#: byte-identical copies, so nothing about stylization can explain a loss,
+#: yet it scored 3.14 points below the Original group (37.69% vs 40.83%).
 ORIGINAL_EPOCHS = 30
+#: The step budget of the Original group, kept for the runs that are
+#: already on disk: 30 epochs over 1,349 images at batch size 64 is
+#: ``30 * ceil(1349/64) = 660`` steps.  It is the *reference* the
+#: epoch-based budget is checked against, not a constant that is handed out
+#: to every group.
 TOTAL_STEPS = 660
+
+def total_steps_for(n_images: int) -> int:
+    """The step budget of a group with ``n_images`` training images.
+
+    The budget is the number of epochs every group is entitled to, turned
+    into optimizer steps for that group's own dataset size::
+
+        total_steps = ORIGINAL_EPOCHS * ceil(n_images / BATCH_SIZE)
+
+    With this rule every group performs the same number of *passes over
+    its own data*, which is the property the comparison between the
+    groups needs.  The Original group (1,349 images) still gets exactly
+    660 steps, so its budget -- and therefore its fingerprint and every
+    result already on disk -- is unchanged.  An augmented group (2,698
+    images) now gets 1,290 steps instead of 660, which is the half of its
+    training that it was missing.
+
+    The epoch count is the one that is held fixed, not the step count, and
+    the rounding is up to a whole batch, so the last epoch of every group
+    is complete.  This is what makes the duplicated group a meaningful
+    control again: it can no longer lose to the Original group for
+    reasons that have nothing to do with its content.
+
+    The budget of the Original group is 30 * ceil(1349/64) = 660 steps and
+    the budget of an augmented group (2,698 images) is 30 * ceil(2698/64) =
+    1,290 steps.  The Original budget is unchanged by this rule, so every
+    result already recorded for it stays valid; the augmented groups get
+    the half of their training that they were missing.
+    """
+    if n_images <= 0:
+        return 0
+    steps_per_epoch = math.ceil(n_images / BATCH_SIZE)
+    return ORIGINAL_EPOCHS * steps_per_epoch
+
+
 # Optional scaled-down protocol for the pipeline smoke test.  When
 # ``NNDL_SUBSET`` is set to the number of training images to use, every group
 # trains on the same subset and the step budget is scaled by the same factor,
@@ -313,16 +372,84 @@ def balanced_train_subset(size: int) -> list[str]:
     return chosen
 
 
-def training_config() -> dict:
+def train_images_of_group(group: str, manifest: Path | None = None) -> int:
+    """The number of training images of a group.
+
+    The Original group and the MixStyle baseline train on the Photo
+    Training split alone.  Every other group trains on that split *plus*
+    one row per manifest entry, so its training set is twice as large.
+
+    The count is computed from the manifest rather than assumed, so that a
+    group whose manifest has a different number of rows than the split --
+    a subset protocol, or a generator that was run with a different
+    setting -- gets the budget that matches the data it actually has.
+
+    A manifest that cannot be read is a hard error rather than a guess:
+    the budget must follow the data, and a budget guessed from a missing
+    manifest is exactly the kind of silent mismatch this protocol is
+    meant to prevent.
+    """
+    originals = len(read_split(SPLIT_FILES["photo_train"]))
+    if group in ("original", MIXSTYLE_GROUP):
+        return originals
+    if group not in AUGMENTED_GROUPS and group not in FOREGROUND_GROUPS:
+        raise ValueError(f"unknown group: {group}")
+    if manifest is None:
+        raise ValueError(f"group '{group}' requires an augmentation manifest")
+    manifest = Path(manifest)
+    if not manifest.is_file():
+        raise FileNotFoundError(
+            f"group '{group}': the manifest {manifest} does not exist, so the "
+            f"size of its training set -- and therefore its step budget -- "
+            f"cannot be established")
+    rows = 0
+    for line in manifest.read_text(encoding="utf-8-sig").splitlines():
+        if line.strip():
+            rows += 1
+    return originals + rows
+
+
+def total_steps_of_group(group: str, manifest: Path | None = None) -> int:
+    """The step budget of a group under the epoch-based protocol.
+
+    Every group gets ``ORIGINAL_EPOCHS`` passes over *its own* training
+    set.  The Original group therefore keeps its 660 steps and its
+    fingerprint, and an augmented group gets 1,290 steps for its 2,698
+    images instead of the 660 that left half of its data unseen.
+
+    A subset run keeps the reduced budget it was given: the subset is a
+    separate protocol with its own fingerprint, and its budget is scaled
+    by the same factor as the data, so the number of passes over the data
+    stays the same there too.
+    """
+    images = train_images_of_group(group, manifest)
+    if SUBSET_SIZE:
+        factor = SUBSET_SIZE / len(read_split(SPLIT_FILES["photo_train"]))
+        return max(1, round(TOTAL_STEPS * factor))
+    return total_steps_for(images)
+
+
+def training_config(group: str | None = None,
+                    manifest: Path | None = None) -> dict:
     """The fairness-relevant subset of the configuration.
 
     ``checkpoint_selection`` is documentation of the policy, not a behaviour:
     it is recorded in every run summary but excluded from ``config_hash()`` so
     that rewording it never invalidates runs that are already on disk.
+
+    ``group`` selects the step budget.  Under the epoch-based protocol the
+    budget is a property of the *data* and not a constant, so the training
+    block of a group records the budget that group actually received.
+    Without a group the Original reference budget (660 steps) is used,
+    which is what the recorded baseline runs carry.
     """
+    if group is None:
+        total_steps = TOTAL_STEPS
+    else:
+        total_steps = total_steps_of_group(group, manifest)
     return {
         "batch_size": BATCH_SIZE,
-        "total_steps": TOTAL_STEPS,
+        "total_steps": total_steps,
         "lr": LR,
         "momentum": MOMENTUM,
         "weight_decay": WEIGHT_DECAY,
@@ -396,12 +523,20 @@ def config_hash_of(training_config_dict: dict) -> str:
     return hashlib.sha256(payload).hexdigest()[:12]
 
 
-def config_hash() -> str:
+def config_hash(group: str | None = None,
+                manifest: Path | None = None) -> str:
     """Fingerprint of the behaviourally relevant configuration.
 
     Two runs may be compared only if this matches.
+
+    ``group`` selects the step budget that goes into the fingerprint.
+    Under the epoch-based protocol the budget is a property of the data,
+    so two groups with the same hyper-parameters but a different number of
+    training images have *different* fingerprints -- which is correct,
+    because they were trained with a different budget.  The Original group
+    keeps its historical fingerprint, because its budget is unchanged.
     """
-    return config_hash_of(training_config())
+    return config_hash_of(training_config(group, manifest))
 
 
 def mixstyle_config_hash() -> str:
@@ -412,9 +547,12 @@ def mixstyle_config_hash() -> str:
     would compare two different models under one protocol.  The hash is
     derived from the main one plus the MixStyle parameters, so the two are
     visibly related but cannot be confused.
+
+    The MixStyle baseline trains on the Photo Training split alone, so its
+    budget is the Original one (660 steps) and its base hash is unchanged.
     """
     payload = {
-        "base": config_hash(),
+        "base": config_hash(MIXSTYLE_GROUP),
         "mixstyle": True,
         "mixstyle_p": MIXSTYLE_P,
         "mixstyle_alpha": MIXSTYLE_ALPHA,
@@ -422,7 +560,9 @@ def mixstyle_config_hash() -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def foreground_config_hash(kind: str | None = None) -> str:
+def foreground_config_hash(kind: str | None = None,
+                           group: str | None = None,
+                           manifest: Path | None = None) -> str:
     """The fingerprint of a repaired-modulation run.
 
     The repaired variant changes the *augmentation*, not the training
@@ -439,14 +579,15 @@ def foreground_config_hash(kind: str | None = None) -> str:
     turns on, so it must not be hidden.
     """
     payload = {
-        "base": config_hash(),
+        "base": config_hash(group, manifest),
         "modulation": "foreground",
         "foreground_kind": kind or FOREGROUND_KIND,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def foreground_center_config_hash() -> str:
+def foreground_center_config_hash(group: str | None = None,
+                                  manifest: Path | None = None) -> str:
     """The fingerprint of the centre-prior repair.
 
     The map selection chose the centre prior over the spectral residual
@@ -456,14 +597,15 @@ def foreground_center_config_hash() -> str:
    exactly the comparison that decided the choice.
     """
     payload = {
-        "base": config_hash(),
+        "base": config_hash(group, manifest),
         "modulation": "foreground",
         "foreground_kind": FOREGROUND_CENTER_KIND,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def foreground_center_matched_config_hash() -> str:
+def foreground_center_matched_config_hash(group: str | None = None,
+                                          manifest: Path | None = None) -> str:
     """The fingerprint of the matched control *of* the centre prior.
 
     It is a uniform map, so the map alone does not distinguish it from
@@ -473,7 +615,7 @@ def foreground_center_matched_config_hash() -> str:
     the fact that the map was flattened.
     """
     payload = {
-        "base": config_hash(),
+        "base": config_hash(group, manifest),
         "modulation": "foreground",
         "foreground_kind": FOREGROUND_CENTER_KIND,
         "uniform": True,
@@ -481,7 +623,8 @@ def foreground_center_matched_config_hash() -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def line_art_config_hash(unit: str, manifest: Path | None = None) -> str:
+def line_art_config_hash(unit: str, manifest: Path | None = None,
+                          group: str | None = None) -> str:
     """The fingerprint of one line-art unit.
 
     The line-art family is a different method from the AdaIN style
@@ -500,7 +643,7 @@ def line_art_config_hash(unit: str, manifest: Path | None = None) -> str:
     image the run saw.
     """
     payload = {
-        "base": config_hash(),
+        "base": config_hash(group, manifest),
         "method": "line-art",
         "unit": unit,
         "data": manifest_fingerprint(manifest),
@@ -580,14 +723,20 @@ def config_hash_for_group(group: str, manifest: Path | None = None) -> str:
     candidates under one group name, and a fingerprint that ignored the
     map would make them indistinguishable -- hiding precisely the
     comparison the selection turns on.
+
+    The group's *budget* is part of the fingerprint as well.  Under the
+    epoch-based protocol the step budget follows the size of the group's
+    own training set, so the fingerprint must carry it: two runs that
+    differ in their budget are not comparable, and the fingerprint is what
+    says so.
     """
     if group == MIXSTYLE_GROUP:
         return mixstyle_config_hash()
     if group == FOREGROUND_CENTER_MATCHED_GROUP:
-        return foreground_center_matched_config_hash()
+        return foreground_center_matched_config_hash(group, manifest)
     unit = line_art_unit_of_group(group)
     if unit is not None:
-        return line_art_config_hash(unit, manifest)
+        return line_art_config_hash(unit, manifest, group)
     if group in FOREGROUND_GROUPS:
         kind = foreground_kind_of_manifest(manifest)
         if kind is None:
@@ -600,8 +749,8 @@ def config_hash_for_group(group: str, manifest: Path | None = None) -> str:
                 f"group '{group}': the foreground estimator of manifest "
                 f"'{manifest}' could not be read, so no fingerprint can be "
                 f"established; pass the map explicitly")
-        return foreground_config_hash(kind)
-    return config_hash()
+        return foreground_config_hash(kind, group, manifest)
+    return config_hash(group, manifest)
 
 
 def run_fingerprint(run_dir: Path) -> None | str:
@@ -618,6 +767,62 @@ def run_fingerprint(run_dir: Path) -> None | str:
         return None
     payload = json.loads(summary.read_text(encoding="utf-8"))
     return payload.get("config_hash")
+
+
+def run_matches_protocol(run_dir: Path, group: str,
+                         manifest: Path | None = None) -> bool:
+    """Whether a run was trained under the protocol that is current now.
+
+    This is the *protocol* half of the reuse check: the hyper-parameters
+    and the step budget.  Two things are checked, and the first one is
+    self-contained so that it cannot be skipped by a missing manifest:
+
+    1. the *epoch invariant*.  The protocol is "30 passes over the group's
+       own training set", so a run is only of the current protocol if its
+       recorded budget is the budget that its own recorded data size
+       implies.  A run of the old fixed-budget protocol fails this: 660
+       steps over 2,698 images is 15.7 epochs, not 30.
+
+    2. the *hyper-parameters*.  The recorded training block is
+       authoritative, so its canonical hash is compared with the canonical
+       hash of the training block the group gets now.  This needs the
+       manifest, because the budget is part of the block.
+
+    A run whose group cannot be identified is judged on the epoch
+    invariant alone, which is the part that decides whether the run has to
+    be retrained.
+    """
+    summary = Path(run_dir) / "train_summary.json"
+    if not summary.is_file():
+        return False
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    recorded = payload.get("training_config")
+    if not isinstance(recorded, dict):
+        return True
+
+    # The reduced smoke-test protocol has a budget of its own, so it is
+    # not judged against the epoch invariant.
+    subset = recorded.get("subset_size") or 0
+    if subset:
+        expected = training_config(group, manifest)
+        return config_hash_of(recorded) == config_hash_of(expected)
+
+    # 1. the epoch invariant, computed from the run's own record
+    images = payload.get("train_images")
+    steps = recorded.get("total_steps")
+    if images and steps:
+        if steps != total_steps_for(int(images)):
+            return False
+
+    # 2. the hyper-parameters
+    try:
+        expected = training_config(group, manifest)
+    except (OSError, ValueError):
+        # The manifest is missing, so the budget of the group cannot be
+        # established.  The epoch invariant above has already decided
+        # whether the run has to be retrained.
+        return True
+    return config_hash_of(recorded) == config_hash_of(expected)
 
 
 def canonical_hash_of_run(run_dir: Path) -> None | str:
@@ -644,15 +849,56 @@ def canonical_hash_of_run(run_dir: Path) -> None | str:
     if group is not None:
         manifest = payload.get("aug_manifest")
         if group == FOREGROUND_CENTER_MATCHED_GROUP:
-            return foreground_center_matched_config_hash()
+            return foreground_center_matched_config_hash(group, manifest)
         unit = line_art_unit_of_group(group)
         if unit is not None:
-            return line_art_config_hash(unit, manifest)
+            return line_art_config_hash(unit, manifest, group)
         if group in FOREGROUND_GROUPS:
             kind = foreground_kind_of_manifest(
                 Path(manifest) if manifest else None)
             if kind is None:
                 return None
-            return foreground_config_hash(kind)
+            return foreground_config_hash(kind, group, manifest)
         return config_hash_for_group(group)
     return payload.get("config_hash")
+
+
+def snapshot_is_consistent(stored: str | None,
+                           recorded_config: dict | None) -> bool:
+    """Whether a stored fingerprint snapshot matches the run's own record.
+
+    The ``config_hash`` string written into a run summary is a *snapshot* of
+    the hash definition that was in force when the run was written.  Two
+    definitions have been in force over the project's history:
+
+    * the current one, which hashes an explicit allow-list of the fields
+      that decide what the trained model is, and
+
+    * an earlier one, which hashed the recorded ``training_config`` block
+      in its entirety -- including descriptive fields such as
+      ``checkpoint_selection`` that do not change the training.
+
+    A run recorded under the earlier definition therefore carries a
+    different string even when its training behaviour is identical to
+    today's.  Rejecting it would retire a valid baseline for a
+    bookkeeping reason.
+
+    The snapshot is accepted when it is the hash of the run's own recorded
+    training block under *either* definition.  Both hashes are recomputed
+    from the recorded block, so nothing is taken on trust: a snapshot that
+    matches neither describes a different training and is refused.
+
+    The recorded block must itself be the one of the current protocol for
+    the *caller* to accept the run; this function only answers whether the
+    snapshot and the record agree with each other.
+    """
+    if stored is None:
+        return False
+    if not isinstance(recorded_config, dict):
+        # Nothing to recompute from: the snapshot cannot be checked.
+        return False
+    if stored == config_hash_of(recorded_config):
+        return True
+    # The earlier definition: the whole recorded block, verbatim.
+    payload = json.dumps(recorded_config, sort_keys=True).encode()
+    return stored == hashlib.sha256(payload).hexdigest()[:12]

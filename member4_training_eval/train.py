@@ -4,9 +4,12 @@ Usage:
     python train.py --group original --seed 0
     python train.py --group adain  --seed 0 --aug-manifest augmented/adain/manifest_alpha0.5.txt
 
-Training is step-budgeted: every group runs exactly TOTAL_STEPS optimizer
-steps regardless of dataset size, so the three groups are comparable in
-optimization budget (Section 3.7 of the report).  The reported model is the
+Training is epoch-budgeted: every group runs for the same number of passes
+over *its own* training set, so the three groups are comparable in
+optimization budget (Section 3.7 of the report).  The step budget is
+derived from the size of the data -- 30 epochs at batch size 64 -- rather
+than fixed, because a fixed step budget halves the number of epochs for a
+group whose training set is twice as large.  The reported model is the
 *final* checkpoint of that budget: no checkpoint is selected on any validation
 split, and target domains never touch training.
 """
@@ -60,13 +63,14 @@ def main():
     set_seed(args.seed)
 
     train_ds = data.load_train_dataset(args.group, args.aug_manifest)
-    # Step budget.  With a subset the budget is scaled by the same factor as
-    # the data, so every group performs the same number of passes over its
-    # training set.  Without a subset the frozen 660-step budget is used.
-    total_steps = config.TOTAL_STEPS
-    if config.SUBSET_SIZE:
-        factor = config.SUBSET_SIZE / len(config.read_split(config.SPLIT_FILES["photo_train"]))
-        total_steps = max(1, round(config.TOTAL_STEPS * factor))
+    # Step budget.  Every group is trained for the same number of *epochs*
+    # over its own training set: the budget is derived from the size of
+    # the data, not handed out as a constant.  The Original group (1,349
+    # images) gets 30 * ceil(1349/64) = 660 steps, exactly as before, and
+    # an augmented group (2,698 images) gets 1,290 steps instead of 660 --
+    # the half of its training that it used to miss.  A subset run keeps
+    # the reduced budget of the smoke-test protocol.
+    total_steps = config.total_steps_of_group(args.group, args.aug_manifest)
     train_loader = DataLoader(
         train_ds, batch_size=config.BATCH_SIZE, shuffle=True,
         num_workers=config.NUM_WORKERS, pin_memory=True, drop_last=False,
@@ -158,7 +162,7 @@ def main():
         "aug_manifest": str(args.aug_manifest) if args.aug_manifest else None,
         "config_hash": config.config_hash_for_group(args.group,
                                                     args.aug_manifest),
-        "training_config": config.training_config(),
+        "training_config": config.training_config(args.group, args.aug_manifest),
         "best_val_acc": best["val_acc"],
         "best_step": best["step"],
         "reported_val_acc": summary_best["val_acc"],

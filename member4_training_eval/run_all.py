@@ -40,12 +40,30 @@ def main():
         # would silently reuse a run from a different protocol (a different
         # step budget, a different subset, a different checkpoint policy) and
         # mix incomparable numbers in one table.
+        #
+        # The budget is a property of the group's own data under the
+        # epoch-based protocol, so the fingerprint that is compared is the
+        # one of *this* group, not the generic one.  Two things have to
+        # match: the protocol (the hyper-parameters and the step budget)
+        # and the method (the map of a repaired modulation, the manifest of
+        # a line-art unit).  The fingerprint the run recorded for itself is
+        # the one that carries the method, and it is what "was this run
+        # produced by the method I am about to run?" means.
+        current = config.config_hash_for_group(args.group, args.aug_manifest)
         reusable = eval_file.exists() and not args.force
         if reusable:
-            recorded = config.canonical_hash_of_run(run_dir)
-            if recorded is not None and recorded != config.config_hash():
+            recorded = config.run_fingerprint(run_dir)
+            if recorded is None:
+                recorded = config.canonical_hash_of_run(run_dir)
+            protocol_ok = config.run_matches_protocol(
+                run_dir, args.group, args.aug_manifest)
+            if not protocol_ok:
+                print(f"=== {tag}: stored result does not match the current "
+                      f"protocol; retraining ===")
+                reusable = False
+            elif recorded is not None and recorded != current:
                 print(f"=== {tag}: stored result has config {recorded} != "
-                      f"current {config.config_hash()}; retraining ===")
+                      f"current {current}; retraining ===")
                 reusable = False
         if reusable:
             print(f"=== {tag}: eval already present and up to date, skipping ===")
@@ -63,7 +81,9 @@ def main():
                            check=True, cwd=config.CODE_ROOT)
         per_seed.append(json.loads(eval_file.read_text()))
 
-    summary = {"group": args.group, "seeds": args.seeds, "config_hash": config.config_hash()}
+    summary = {"group": args.group, "seeds": args.seeds,
+               "config_hash": config.config_hash_for_group(args.group,
+                                                           args.aug_manifest)}
     for split in ("photo_test",) + CROSS:
         values = [r[split] for r in per_seed if split in r]
         if values:

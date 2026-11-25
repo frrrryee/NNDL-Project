@@ -5,7 +5,7 @@
 \label{sec:setup}
 \label{sec:training_prep}
 
-All experiments share one protocol, described in Section~\ref{sec:exp_design}: a single ResNet-18, one training script, one transform definition, and a fixed budget of $S = 660$ optimizer steps at batch size 64. The reported model is the final checkpoint of that budget for every group and every seed; no checkpoint is selected on any validation split. Every group is run with the same seeds, so all comparisons are \emph{paired}.
+All experiments share one protocol, described in Section~\ref{sec:exp_design}: a single ResNet-18, one training script, one transform definition, and a budget of 30 passes over each group's own training set at batch size 64 ($S = 30\lceil N/64\rceil$ steps). The reported model is the final checkpoint of that budget for every group and every seed; no checkpoint is selected on any validation split. Every group is run with the same seeds, so all comparisons are \emph{paired}.
 
 We report the cross-domain average as the mean of the three target-domain accuracies (Art Painting, Cartoon, Sketch), and the in-domain Photo Test accuracy as a supporting metric. Entries in every table are mean$\pm$standard deviation over the seeds; differences between groups are computed per seed.
 
@@ -28,4 +28,4 @@ The two data-volume controls were built by a separate generator that copies or t
 
 \textit{Statistical treatment.} All comparisons are paired over the shared seeds. We report the paired mean difference, its 95\% confidence interval, the paired $t$ statistic and its two-sided $p$ value, a percentile-bootstrap confidence interval (10{,}000 resamples, which does not assume normality and is therefore the more trustworthy interval at this sample size), and the paired Cohen's $d$ as an effect size. Because the report compares many pairs at once, the $p$ values are additionally corrected with the Benjamini--Hochberg procedure for a false discovery rate of 5\%. A difference that does not reach significance is reported as inconclusive.
 
-\textit{Hardware.} All runs were executed on a single NVIDIA GeForce RTX 4070 Laptop GPU. One training run takes about 190 seconds under the fixed step budget.
+\textit{Hardware.} All runs were executed on a single NVIDIA GeForce RTX 4070 Laptop GPU. One training run takes about 150--340 seconds, depending on the size of the group's training set and on its step budget.

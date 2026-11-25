@@ -16,12 +16,15 @@ never be conflated with a styled group.
 \paragraph{Optimisation.}
 We use SGD with momentum 0.9, weight decay $5\times10^{-4}$, learning rate
 0.01 and a cosine annealing schedule, with label smoothing 0.1 and a batch
-size of 64. The step budget is fixed at 660 optimiser steps for every
-group. This number is 30 nominal epochs over the 1{,}349-image Original
-training set, and it is deliberately a \emph{step} budget rather than an
-epoch budget: the styled groups have twice as many training rows, so an
-epoch budget would give them twice the number of gradient updates and the
-comparison would be confounded.
+size of 64. The budget is an \emph{epoch} budget: every group is trained for
+30 passes over its own training set, so the step budget of a group is
+$S = 30\lceil N/64\rceil$ for a group with $N$ training images --- $660$
+steps for the Original group and $1{,}290$ for the styled groups. The epoch
+count is what is held fixed rather than the step count, because a fixed step
+budget would give the styled groups, which have twice the training rows,
+only half as many passes over their data as the Original group, and the
+comparison would then be confounded with the training budget rather than
+with the method.
 
 \paragraph{Data augmentation during training.}
 Training images are resized to $224\times224$, randomly cropped with
@@ -30,7 +33,7 @@ usual ImageNet normalisation. These are the standard training-time
 augmentations and they are applied identically to every group.
 
 \paragraph{Which checkpoint is reported.}
-We report the \emph{final} checkpoint of the fixed step budget, not the
+We report the \emph{final} checkpoint of the step budget, not the
 best one on the validation set. The reason is quantitative and worth
 stating: the Photo validation accuracy saturates at 97--98\% within the
 first 60 steps, and with 150 validation images one image is worth

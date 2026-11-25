@@ -330,13 +330,19 @@ def main():
     problems = check(manifests, subset=args.subset)
 
     # 6. identical training configuration across the groups
-    problems.extend(check_config_hashes(args.runs))
+    config_problems, config_warnings = check_config_hashes(args.runs)
+    problems.extend(config_problems)
 
     # 7. the manifests must be real experiment manifests and their rows must
     #    resolve to files that actually exist under DATA_ROOT
     problems.extend(check_not_synthetic(manifests))
     if not args.subset:
         problems.extend(check_images_exist(manifests))
+
+    if config_warnings:
+        print(f"NOTE ({len(config_warnings)} warnings):")
+        for w in config_warnings[:10]:
+            print("  -", w)
 
     if problems:
         print(f"FAIL ({len(problems)} problems):")
@@ -355,11 +361,31 @@ def check_config_hashes(runs):
     string, so a run recorded under an older hash definition is still judged
     on what it actually did, and a run whose hyper-parameters differ from the
     current ones is rejected.
+
+    Two different comparisons are made, because they answer two different
+    questions:
+
+        the *protocol*  -- the hyper-parameters and the step budget.  The
+            canonical hash of the recorded training block is compared with
+            the canonical hash of the training block the group would get
+            now.  A run whose budget differs is a run of the old protocol
+            and has to be retrained.
+
+        the *method*  -- the stored ``config_hash``, which additionally
+            carries the map of a repaired modulation and the manifest of a
+            line-art unit.  It is compared with the fingerprint of the
+            group the run belongs to.
+
+    The expectation is computed per group, because under the epoch-based
+    protocol the step budget is derived from the size of the group's own
+    training set: a group with 2,698 images legitimately has a different
+    budget -- and a different fingerprint -- from the Original group with
+    1,349 images.
     """
     problems = []
+    warnings = []
     if not runs:
-        return problems
-    expected = config.config_hash()
+        return problems, warnings
     for run in runs:
         run = Path(run)
         if run.is_dir():
@@ -380,21 +406,68 @@ def check_config_hashes(runs):
             if not isinstance(payload, dict):
                 problems.append(f"{candidate}: not a JSON object")
                 continue
+            group = payload.get("group")
+            manifest = payload.get("aug_manifest")
+            # The expectation is the fingerprint of *this* group under the
+            # current protocol.  A run whose group cannot be identified is
+            # judged against the generic one, which is the Original
+            # budget.
+            expected = config.config_hash_for_group(group, manifest) \
+                if group else config.config_hash()
             recorded_config = payload.get("training_config")
             if isinstance(recorded_config, dict):
                 actual = config.config_hash_of(recorded_config)
-                if actual != expected:
+                expected_protocol = config.config_hash_of(
+                    config.training_config(group, manifest))
+                if actual != expected_protocol:
+                    budget = recorded_config.get("total_steps")
+                    wanted = config.training_config(group, manifest).get("total_steps")
+                    if budget != wanted:
+                        problems.append(
+                            f"{candidate}: step budget {budget} != {wanted}; the run "
+                            f"was trained under the old fixed-budget protocol and "
+                            f"has to be retrained")
+                    else:
+                        problems.append(
+                            f"{candidate}: training config {actual} != current "
+                            f"{expected_protocol}")
+                # The method fingerprint.  The stored string is a *snapshot*
+                # of the hash definition that was in force when the run was
+                # written, so it must not be compared with today's
+                # definition: archived runs legitimately carry an older
+                # string for an identical method, and demanding equality
+                # would reject them for a bookkeeping difference while the
+                # method they used is unchanged.
+                #
+                # What has to hold is that the snapshot agrees with the
+                # run's own recorded training block, under either of the
+                # two hash definitions that have been in force.  Both are
+                # recomputed from the recorded block, so nothing is taken
+                # on trust.
+                stored = payload.get("config_hash")
+                if stored is not None and not config.snapshot_is_consistent(
+                        stored, recorded_config):
                     problems.append(
-                        f"{candidate}: training config {actual} != current {expected}")
+                        f"{candidate}: config_hash {stored} matches neither the "
+                        f"run's own fingerprint {actual} nor the current "
+                        f"{expected}")
                 continue
-            # Fallback for artifacts that only carry the hash string.
+            # Fallback for artifacts that only carry the hash string.  There
+            # is no recorded training block to recompute from, so the
+            # snapshot cannot be re-derived; it is compared with the
+            # current one and the difference is reported as a warning
+            # rather than as a protocol violation, because without the
+            # training block there is no way to tell a superseded
+            # definition from a different method.
             recorded_hash = payload.get("config_hash")
             if recorded_hash is None:
                 problems.append(f"{candidate}: no config_hash found")
             elif recorded_hash != expected:
-                problems.append(
-                    f"{candidate}: config_hash {recorded_hash} != current {expected}")
-    return problems
+                warnings.append(
+                    f"{candidate}: recorded config_hash {recorded_hash} differs "
+                    f"from the current {expected} and the artifact carries no "
+                    f"training block to recompute it from")
+    return problems, warnings
 
 
 if __name__ == "__main__":
