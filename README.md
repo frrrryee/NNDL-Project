@@ -25,6 +25,19 @@ The [one-time handoff to member 5](member3_structure_preserving/handoff_member5/
 collects report drafts for 2.4, 3.5, 4.3 and 5.3, formulas, standalone figures,
 the frozen interface contract, BibTeX, evidence, and a compiled PDF preview.
 
+## Working journals
+
+`docs/` holds the dated working journals. They record what was tried, what the
+numbers were, and -- just as importantly -- which directions were ruled out
+and why, so that the next day does not repeat them.
+
+| Journal | Contents |
+|---|---|
+| [`docs/journal_2026-11-25_photo_val_gate_softvote_and_what_next.md`](docs/journal_2026-11-25_photo_val_gate_softvote_and_what_next.md) | The Photo Validation safety gate and the mechanism ranking; the implementation of the attention gate and the superpixel soft vote; the full result table and an analysis of which directions remain open |
+| [`docs/line_art_attention_project.md`](docs/line_art_attention_project.md) | The line-art proposal: motivation, literature, design, and its falsifiable prediction |
+| [`docs/incident_2026-11-24_center_overwrite.md`](docs/incident_2026-11-24_center_overwrite.md) | Incident: the foreground build overwrote the original method's dataset |
+| [`docs/incident_2026-11-24_lineart_controls.md`](docs/incident_2026-11-24_lineart_controls.md) | Incident: three bugs that degenerated the line-art controls |
+
 ## Repository layout — one folder per member
 
 | Folder | Owner | Contents |
