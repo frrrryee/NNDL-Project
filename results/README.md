@@ -20,6 +20,7 @@ files, the same style pool and the same `config_hash` regenerate them.
 | `stats_report.json` | Paired comparisons, confidence intervals, effect sizes |
 | `structure_metrics_*.json` | EdgeScore and LPIPS per augmentation set |
 | `edge_analysis.npz` | Per-image edge scores for the 1,349 training images |
+| [`runs/`](runs/) | **Every run's raw results** — per-seed records, the full group ranking, the line-art and foreground comparisons, and the selection record. See [its README](runs/README.md). |
 
 Each `summary_*.json` contains, for every split: the mean, the standard
 deviation and the per-seed accuracies, plus a `per_class` breakdown.  The
@@ -35,11 +36,21 @@ all five groups share `ecc6090e5b29`.
 # the results table in LaTeX or Markdown
 .\nn.ps1 member4_training_eval\summarize_results.py --format latex
 .\nn.ps1 member4_training_eval\summarize_results.py --format markdown
+
+# every completed group, ranked by cross-domain accuracy
+.\nn.ps1 member4_training_eval\summarize_all_groups.py
+
+# copy the results of a fresh run into results/runs/
+.\nn.ps1 member4_training_eval\export_run_results.py
 ```
 
 `final_analysis.py` and `summarize_results.py` read the summaries from
 `$NNDL_RUNS_ROOT`.  After a fresh run, copy the new summaries here so the
 repository stays in sync with the results.
+
+`export_run_results.py` does that copy for the whole runs directory: it
+takes every result file, leaves the checkpoints out and rewrites the
+absolute paths as relative ones.
 
 ## What is not here, and why
 

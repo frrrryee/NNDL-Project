@@ -1,0 +1,114 @@
+{
+  "run": "ours_fg_center_matched_s1",
+  "checkpoint": "last.pt",
+  "group": "ours_fg_center_matched",
+  "config_hash": "d8714b699944",
+  "photo_val": 0.98,
+  "photo_test": 0.9941520467836257,
+  "art_painting_test": 0.6728515625,
+  "cartoon_test": 0.27687713310580203,
+  "sketch_test": 0.3594704684317719,
+  "cross_domain_avg": 0.43639972134585797,
+  "per_class": {
+    "photo_val": {
+      "accuracy": {
+        "dog": 0.8823529411764706,
+        "elephant": 1.0,
+        "giraffe": 1.0,
+        "guitar": 1.0,
+        "horse": 0.9444444444444444,
+        "house": 1.0,
+        "person": 1.0
+      },
+      "count": [
+        17,
+        18,
+        16,
+        17,
+        18,
+        25,
+        39
+      ]
+    },
+    "photo_test": {
+      "accuracy": {
+        "dog": 1.0,
+        "elephant": 1.0,
+        "giraffe": 1.0,
+        "guitar": 1.0,
+        "horse": 0.95,
+        "house": 1.0,
+        "person": 1.0
+      },
+      "count": [
+        19,
+        21,
+        19,
+        19,
+        20,
+        29,
+        44
+      ]
+    },
+    "art_painting_test": {
+      "accuracy": {
+        "dog": 0.8232189973614775,
+        "elephant": 0.5490196078431373,
+        "giraffe": 0.7228070175438597,
+        "guitar": 0.8804347826086957,
+        "horse": 0.835820895522388,
+        "house": 0.911864406779661,
+        "person": 0.26948775055679286
+      },
+      "count": [
+        379,
+        255,
+        285,
+        184,
+        201,
+        295,
+        449
+      ]
+    },
+    "cartoon_test": {
+      "accuracy": {
+        "dog": 0.07712082262210797,
+        "elephant": 0.10722100656455143,
+        "giraffe": 0.2976878612716763,
+        "guitar": 1.0,
+        "horse": 0.25308641975308643,
+        "house": 0.7569444444444444,
+        "person": 0.07901234567901234
+      },
+      "count": [
+        389,
+        457,
+        346,
+        135,
+        324,
+        288,
+        405
+      ]
+    },
+    "sketch_test": {
+      "accuracy": {
+        "dog": 0.0012970168612191958,
+        "elephant": 0.42567567567567566,
+        "giraffe": 0.5232403718459495,
+        "guitar": 0.9901315789473685,
+        "horse": 0.09068627450980392,
+        "house": 0.325,
+        "person": 0.0
+      },
+      "count": [
+        771,
+        740,
+        753,
+        608,
+        816,
+        80,
+        160
+      ]
+    }
+  }
+}

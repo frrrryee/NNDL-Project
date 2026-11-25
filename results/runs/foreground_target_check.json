@@ -1,0 +1,32 @@
+{
+  "spectral": {
+    "low_density_gain": 0.001366438846586672,
+    "high_density_gain": 0.0005709890618548683,
+    "difference": -0.0007954497847318038,
+    "welch_t": -0.9961510835061459,
+    "welch_p": 0.32073574455944476,
+    "n_low": 100,
+    "n_high": 100,
+    "median_density": 4956.5
+  },
+  "center": {
+    "low_density_gain": 0.04767996935687663,
+    "high_density_gain": 0.019542941197248403,
+    "difference": -0.028137028159628225,
+    "welch_t": -8.025602938834574,
+    "welch_p": 3.9268911467330514e-13,
+    "n_low": 100,
+    "n_high": 100,
+    "median_density": 4956.5
+  },
+  "spectral_center": {
+    "low_density_gain": 0.00191586746806588,
+    "high_density_gain": 0.0010073496586240891,
+    "difference": -0.0009085178094417909,
+    "welch_t": -1.0909329451975025,
+    "welch_p": 0.2770091365421909,
+    "n_low": 100,
+    "n_high": 100,
+    "median_density": 4956.5
+  }
+}

@@ -14,6 +14,13 @@ augmented/
 runs/
 .nndl_python
 
+# The run results are copied into the repository under results/runs/, so
+# that a reader can check a number against the file it came from.  The
+# pattern above matches any directory called "runs" at any depth, so
+# this one has to be taken back explicitly.
+!results/runs/
+!results/runs/**
+
 # LaTeX build artifacts
 *.aux
 *.log

@@ -1,0 +1,79 @@
+{
+  "groups": {
+    "original": [
+      "original_s0",
+      "original_s1",
+      "original_s2",
+      "original_s3",
+      "original_s4"
+    ],
+    "ours_line_attn": [
+      "ours_line_attn_s0",
+      "ours_line_attn_s1",
+      "ours_line_attn_s2",
+      "ours_line_attn_s3",
+      "ours_line_attn_s4"
+    ],
+    "ours_line_vote": [
+      "ours_line_vote_s0",
+      "ours_line_vote_s1",
+      "ours_line_vote_s2",
+      "ours_line_vote_s3",
+      "ours_line_vote_s4"
+    ],
+    "ours_line_plain_total": [
+      "ours_line_plain_total_s0",
+      "ours_line_plain_total_s1",
+      "ours_line_plain_total_s2",
+      "ours_line_plain_total_s3",
+      "ours_line_plain_total_s4"
+    ],
+    "ours_line_plain_fg": [
+      "ours_line_plain_fg_s0",
+      "ours_line_plain_fg_s1",
+      "ours_line_plain_fg_s2",
+      "ours_line_plain_fg_s3",
+      "ours_line_plain_fg_s4"
+    ]
+  },
+  "paired": {
+    "ours_line_plain_total": {
+      "mean_diff": 0.0017658295221988141,
+      "t": 0.3393607546573243,
+      "p": 0.7514070237839892,
+      "cohens_d": 0.09115748013654187,
+      "n": 5,
+      "worse": 1
+    },
+    "ours_line_plain_fg": {
+      "mean_diff": -0.0001741982099867867,
+      "t": -0.023551923896416343,
+      "p": 0.9823380980445925,
+      "cohens_d": -0.006631057143614699,
+      "n": 5,
+      "worse": 2
+    },
+    "ours_line_vote": {
+      "mean_diff": -0.01557436769994136,
+      "t": -3.0769996020675365,
+      "p": 0.037039590096787596,
+      "cohens_d": -0.6583378517077382,
+      "n": 5,
+      "worse": 5
+    },
+    "original": {
+      "mean_diff": -0.015971895109192412,
+      "t": -1.2905505471837448,
+      "p": 0.266404036236806,
+      "cohens_d": -0.6928260973494789,
+      "n": 5,
+      "worse": 3
+    }
+  },
+  "per_domain_difference": {
+    "art_painting_test": 0.6933593750000022,
+    "cartoon_test": 0.18771331058020646,
+    "sketch_test": -0.3513238289205689,
+    "photo_val": 0.0
+  }
+}

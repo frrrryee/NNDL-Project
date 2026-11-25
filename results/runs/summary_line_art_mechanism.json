@@ -1,0 +1,28 @@
+{
+  "images": 80,
+  "units": {
+    "line_attn": {
+      "total_ink": 10353.098065185546,
+      "foreground_ink": 8362.011199951172,
+      "foreground_share": 0.7992666282531067
+    },
+    "line_attn_vote": {
+      "total_ink": 12080.378051757812,
+      "foreground_ink": 7290.864831542969,
+      "foreground_share": 0.5931230809188361
+    },
+    "line_plain_total": {
+      "total_ink": 10384.462713623047,
+      "foreground_ink": 5967.683822631836,
+      "foreground_share": 0.5508638182962313
+    },
+    "line_plain_foreground": {
+      "total_ink": 14905.969946289062,
+      "foreground_ink": 8374.589385986328,
+      "foreground_share": 0.5504271228004353
+    }
+  },
+  "total_match_error": 0.003029493996871385,
+  "foreground_match_error": 0.0015042058345042277,
+  "identical_controls": 0
+}

@@ -1,0 +1,33 @@
+{
+  "target_strength": 0.46,
+  "results": {
+    "spectral": {
+      "candidate_mean": 0.3348389317611818,
+      "control_mean": 0.33359808603901114,
+      "gain": 0.001240845722170742,
+      "fraction_worse": 0.44,
+      "paired_p": 0.0029883213929934207,
+      "effective_strength": 0.4599999977648258,
+      "n": 200
+    },
+    "center": {
+      "candidate_mean": 0.33379807535051625,
+      "control_mean": 0.3335964650217039,
+      "gain": 0.00020161032881235033,
+      "fraction_worse": 0.5,
+      "paired_p": 0.7419004084908362,
+      "effective_strength": 0.46000003814697266,
+      "n": 200
+    },
+    "spectral_center": {
+      "candidate_mean": 0.3349086682684675,
+      "control_mean": 0.33359251568192294,
+      "gain": 0.0013161525865445656,
+      "fraction_worse": 0.415,
+      "paired_p": 0.0027554790366874976,
+      "effective_strength": 0.4600000125169754,
+      "n": 200
+    }
+  },
+  "selected": "spectral_center"
+}

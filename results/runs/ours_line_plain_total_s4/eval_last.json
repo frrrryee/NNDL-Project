@@ -1,0 +1,114 @@
+{
+  "run": "ours_line_plain_total_s4",
+  "checkpoint": "last.pt",
+  "group": "ours_line_plain_total",
+  "config_hash": "266ba7ca7f33",
+  "photo_val": 0.98,
+  "photo_test": 0.9766081871345029,
+  "art_painting_test": 0.58056640625,
+  "cartoon_test": 0.25554607508532423,
+  "sketch_test": 0.27036659877800406,
+  "cross_domain_avg": 0.3688263600377761,
+  "per_class": {
+    "photo_val": {
+      "accuracy": {
+        "dog": 0.8823529411764706,
+        "elephant": 1.0,
+        "giraffe": 1.0,
+        "guitar": 1.0,
+        "horse": 0.9444444444444444,
+        "house": 1.0,
+        "person": 1.0
+      },
+      "count": [
+        17,
+        18,
+        16,
+        17,
+        18,
+        25,
+        39
+      ]
+    },
+    "photo_test": {
+      "accuracy": {
+        "dog": 0.9473684210526315,
+        "elephant": 0.9523809523809523,
+        "giraffe": 1.0,
+        "guitar": 1.0,
+        "horse": 0.9,
+        "house": 1.0,
+        "person": 1.0
+      },
+      "count": [
+        19,
+        21,
+        19,
+        19,
+        20,
+        29,
+        44
+      ]
+    },
+    "art_painting_test": {
+      "accuracy": {
+        "dog": 0.8258575197889182,
+        "elephant": 0.47058823529411764,
+        "giraffe": 0.4666666666666667,
+        "guitar": 0.9565217391304348,
+        "horse": 0.746268656716418,
+        "house": 0.7694915254237288,
+        "person": 0.155902004454343
+      },
+      "count": [
+        379,
+        255,
+        285,
+        184,
+        201,
+        295,
+        449
+      ]
+    },
+    "cartoon_test": {
+      "accuracy": {
+        "dog": 0.2390745501285347,
+        "elephant": 0.030634573304157548,
+        "giraffe": 0.22254335260115607,
+        "guitar": 1.0,
+        "horse": 0.25925925925925924,
+        "house": 0.6527777777777778,
+        "person": 0.019753086419753086
+      },
+      "count": [
+        389,
+        457,
+        346,
+        135,
+        324,
+        288,
+        405
+      ]
+    },
+    "sketch_test": {
+      "accuracy": {
+        "dog": 0.3398184176394293,
+        "elephant": 0.0013513513513513514,
+        "giraffe": 0.17131474103585656,
+        "guitar": 0.9901315789473685,
+        "horse": 0.07107843137254902,
+        "house": 0.125,
+        "person": 0.0
+      },
+      "count": [
+        771,
+        740,
+        753,
+        608,
+        816,
+        80,
+        160
+      ]
+    }
+  }
+}

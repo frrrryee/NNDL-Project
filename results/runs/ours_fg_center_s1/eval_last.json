@@ -1,0 +1,114 @@
+{
+  "run": "ours_fg_center_s1",
+  "checkpoint": "last.pt",
+  "group": "ours_fg_center",
+  "config_hash": "ad89a4f6694b",
+  "photo_val": 0.9733333333333334,
+  "photo_test": 0.9941520467836257,
+  "art_painting_test": 0.6669921875,
+  "cartoon_test": 0.26834470989761094,
+  "sketch_test": 0.3403767820773931,
+  "cross_domain_avg": 0.42523789315833466,
+  "per_class": {
+    "photo_val": {
+      "accuracy": {
+        "dog": 0.8235294117647058,
+        "elephant": 1.0,
+        "giraffe": 1.0,
+        "guitar": 1.0,
+        "horse": 0.9444444444444444,
+        "house": 1.0,
+        "person": 1.0
+      },
+      "count": [
+        17,
+        18,
+        16,
+        17,
+        18,
+        25,
+        39
+      ]
+    },
+    "photo_test": {
+      "accuracy": {
+        "dog": 1.0,
+        "elephant": 1.0,
+        "giraffe": 1.0,
+        "guitar": 1.0,
+        "horse": 0.95,
+        "house": 1.0,
+        "person": 1.0
+      },
+      "count": [
+        19,
+        21,
+        19,
+        19,
+        20,
+        29,
+        44
+      ]
+    },
+    "art_painting_test": {
+      "accuracy": {
+        "dog": 0.8179419525065963,
+        "elephant": 0.5372549019607843,
+        "giraffe": 0.7368421052631579,
+        "guitar": 0.8913043478260869,
+        "horse": 0.8059701492537313,
+        "house": 0.9016949152542373,
+        "person": 0.26057906458797325
+      },
+      "count": [
+        379,
+        255,
+        285,
+        184,
+        201,
+        295,
+        449
+      ]
+    },
+    "cartoon_test": {
+      "accuracy": {
+        "dog": 0.06426735218508997,
+        "elephant": 0.09409190371991247,
+        "giraffe": 0.2976878612716763,
+        "guitar": 1.0,
+        "horse": 0.23148148148148148,
+        "house": 0.78125,
+        "person": 0.056790123456790124
+      },
+      "count": [
+        389,
+        457,
+        346,
+        135,
+        324,
+        288,
+        405
+      ]
+    },
+    "sketch_test": {
+      "accuracy": {
+        "dog": 0.0,
+        "elephant": 0.25675675675675674,
+        "giraffe": 0.7091633466135459,
+        "guitar": 0.9671052631578947,
+        "horse": 0.014705882352941176,
+        "house": 0.1625,
+        "person": 0.0
+      },
+      "count": [
+        771,
+        740,
+        753,
+        608,
+        816,
+        80,
+        160
+      ]
+    }
+  }
+}

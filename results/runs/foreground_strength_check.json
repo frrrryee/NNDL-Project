@@ -1,0 +1,23 @@
+{
+  "spectral": {
+    "effective_alpha": 0.4621826146543026,
+    "edge_score": 0.33366837162606106,
+    "gain": 0.0009687139542208234,
+    "retention": 0.33366837162606106,
+    "mean_content_edges": 5560.69
+  },
+  "center": {
+    "effective_alpha": 0.30681246519088745,
+    "edge_score": 0.36631111294890273,
+    "gain": 0.033611455277062496,
+    "retention": 0.36631111294890273,
+    "mean_content_edges": 5560.69
+  },
+  "spectral_center": {
+    "effective_alpha": 0.4600881293416023,
+    "edge_score": 0.3341612662351852,
+    "gain": 0.001461608563344985,
+    "retention": 0.3341612662351852,
+    "mean_content_edges": 5560.69
+  }
+}

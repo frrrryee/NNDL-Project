@@ -1,0 +1,44 @@
+{
+  "dog": {
+    "attention_coverage": 0.2883295490565183,
+    "spectral_coverage": 0.00419828316740735,
+    "sobel_coverage": 0.4224287941418101,
+    "correlation_with_sobel": 0.2612613014484587
+  },
+  "elephant": {
+    "attention_coverage": 0.26770685762709673,
+    "spectral_coverage": 0.009237516738147452,
+    "sobel_coverage": 0.39167588477685705,
+    "correlation_with_sobel": 0.04808186386878759
+  },
+  "giraffe": {
+    "attention_coverage": 0.3144248869568593,
+    "spectral_coverage": 0.009884401663788029,
+    "sobel_coverage": 0.23591246353186232,
+    "correlation_with_sobel": 0.5018903043777168
+  },
+  "guitar": {
+    "attention_coverage": 0.38710887720183457,
+    "spectral_coverage": 0.003137391889356802,
+    "sobel_coverage": 0.2140412841959544,
+    "correlation_with_sobel": 0.38677780022527486
+  },
+  "horse": {
+    "attention_coverage": 0.34485435385899205,
+    "spectral_coverage": 0.0045152567809712335,
+    "sobel_coverage": 0.3944316145600859,
+    "correlation_with_sobel": 0.17892373613852783
+  },
+  "house": {
+    "attention_coverage": 0.43180215671434213,
+    "spectral_coverage": 0.002412880772639355,
+    "sobel_coverage": 0.4017284765213116,
+    "correlation_with_sobel": 0.43507471411724025
+  },
+  "person": {
+    "attention_coverage": 0.34767477213478487,
+    "spectral_coverage": 0.00752327168519992,
+    "sobel_coverage": 0.30225698150555996,
+    "correlation_with_sobel": 0.1205185470564339
+  }
+}

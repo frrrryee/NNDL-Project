@@ -1,0 +1,88 @@
+{
+  "group": "ours_line_plain_fg",
+  "seed": 2,
+  "tag": "ours_line_plain_fg_s2",
+  "train_images": 2698,
+  "aug_manifest": "aug_sp/lineart/line_plain_foreground/manifest_ours.txt",
+  "config_hash": "97d2563278b0",
+  "training_config": {
+    "batch_size": 64,
+    "total_steps": 660,
+    "lr": 0.01,
+    "momentum": 0.9,
+    "weight_decay": 0.0005,
+    "label_smoothing": 0.1,
+    "eval_every": 60,
+    "checkpoint": "last",
+    "train_transform": "Compose(\n    RandomResizedCrop(size=(224, 224), scale=(0.7, 1.0), ratio=(0.75, 1.3333), interpolation=bilinear, antialias=True)\n    RandomHorizontalFlip(p=0.5)\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+    "eval_transform": "Compose(\n    Resize(size=256, interpolation=bilinear, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+    "arch": "resnet18",
+    "pretrained": "imagenet",
+    "checkpoint_selection": "final checkpoint of the fixed step budget",
+    "subset_size": 0
+  },
+  "best_val_acc": 0.9933333333333333,
+  "best_step": 480,
+  "reported_val_acc": 0.9933333333333333,
+  "reported_step": 660,
+  "total_steps": 660,
+  "subset_size": 0,
+  "wall_time_sec": 215.2,
+  "history": [
+    {
+      "step": 60,
+      "loss": 0.5013812780380249,
+      "val_acc": 0.9666666666666667
+    },
+    {
+      "step": 120,
+      "loss": 0.48833152651786804,
+      "val_acc": 0.9666666666666667
+    },
+    {
+      "step": 180,
+      "loss": 0.48253133893013,
+      "val_acc": 0.9666666666666667
+    },
+    {
+      "step": 240,
+      "loss": 0.45731741189956665,
+      "val_acc": 0.9666666666666667
+    },
+    {
+      "step": 300,
+      "loss": 0.4611576795578003,
+      "val_acc": 0.96
+    },
+    {
+      "step": 360,
+      "loss": 0.4610562324523926,
+      "val_acc": 0.9733333333333334
+    },
+    {
+      "step": 420,
+      "loss": 0.4620968699455261,
+      "val_acc": 0.98
+    },
+    {
+      "step": 480,
+      "loss": 0.4667629897594452,
+      "val_acc": 0.9933333333333333
+    },
+    {
+      "step": 540,
+      "loss": 0.45827579498291016,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 600,
+      "loss": 0.4566683769226074,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 660,
+      "loss": 0.45639118552207947,
+      "val_acc": 0.9866666666666667
+    }
+  ]
+}

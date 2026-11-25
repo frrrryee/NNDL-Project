@@ -1,0 +1,83 @@
+{
+  "selected": "center",
+  "criterion_1_gate": {
+    "description": "Photo Validation mean accuracy, source-domain held-out split; a candidate is rejected when it falls more than the tolerance below the best one",
+    "tolerance": 0.01,
+    "per_candidate": {
+      "spectral": {
+        "per_seed": [
+          0.98,
+          0.98,
+          0.96
+        ],
+        "mean": 0.9733333333333333,
+        "std": 0.011547005383792525,
+        "n": 3
+      },
+      "center": {
+        "per_seed": [
+          0.98,
+          0.9733333333333334,
+          0.96
+        ],
+        "mean": 0.971111111111111,
+        "std": 0.010183501544346328,
+        "n": 3
+      },
+      "spectral_center": {
+        "per_seed": [
+          0.9733333333333334
+        ],
+        "mean": 0.9733333333333334,
+        "std": 0.0,
+        "n": 1
+      }
+    },
+    "passed": [
+      "spectral",
+      "center",
+      "spectral_center"
+    ],
+    "rejected": []
+  },
+  "criterion_2_rank": {
+    "description": "EdgeScore gain over the candidate's own strength-matched uniform control, divided by the candidate's strength deficit relative to the nominal alpha, so that a candidate cannot win by stylising less; measured on the images, with no label and no target-domain image involved",
+    "per_candidate": {
+      "spectral": {
+        "mean_difference": 0.0009687139542207701,
+        "std": 0.005646302937038313,
+        "fraction_worse": 0.44,
+        "paired_t": 2.4263105033427053,
+        "paired_p": 0.01614454073610235,
+        "n": 200,
+        "effective_alpha": 0.4621826146543026,
+        "strength_deficit": 0.037817385345697396,
+        "strength_adjusted": 0.025615571921896067
+      },
+      "center": {
+        "mean_difference": 0.03361145527706252,
+        "std": 0.02846750860821328,
+        "fraction_worse": 0.03,
+        "paired_t": 16.697553887874957,
+        "paired_p": 1.0412415815132007e-39,
+        "n": 200,
+        "effective_alpha": 0.30681246519088745,
+        "strength_deficit": 0.19318753480911255,
+        "strength_adjusted": 0.17398356115612634
+      },
+      "spectral_center": {
+        "mean_difference": 0.0014616085633449847,
+        "std": 0.005891525536343657,
+        "fraction_worse": 0.45,
+        "paired_t": 3.5084744017692087,
+        "paired_p": 0.0005571752138347412,
+        "n": 200,
+        "effective_alpha": 0.4600881293416023,
+        "strength_deficit": 0.039911870658397686,
+        "strength_adjusted": 0.0366208984754127
+      }
+    }
+  },
+  "selection_set": "photo_val (gate) + image-level mechanism (rank)",
+  "target_domain_used": false
+}
