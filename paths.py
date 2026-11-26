@@ -73,7 +73,17 @@ AUGMENTED_ROOT = DATA_ROOT / "augmented"
 SPLIT_DIR = REPO_ROOT / "member4_training_eval" / "project_splits"
 
 #: The frozen style pool (10 external paintings, never from PACS).
-STYLE_POOL_DIR = REPO_ROOT / "member4_training_eval" / "style_pool"
+#:
+#: ``NNDL_STYLE_POOL_DIR`` points the whole pipeline at a *different* pool
+#: directory -- one that carries its own ``images/`` folder and its own
+#: ``style_pool.json`` -- without any code change.  It is how the
+#: style-pool-size ablation selects the pool a run is generated and trained
+#: against.  It is unset by default, so every existing run keeps seeing
+#: exactly the frozen pool it has always seen.
+STYLE_POOL_DIR = Path(
+    os.environ.get("NNDL_STYLE_POOL_DIR")
+    or (REPO_ROOT / "member4_training_eval" / "style_pool")
+).resolve()
 STYLE_POOL_IMAGES = STYLE_POOL_DIR / "images"
 
 #: The style-pool manifest that the generators and the checkers read.  It is

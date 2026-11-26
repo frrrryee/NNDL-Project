@@ -1,0 +1,12 @@
+{
+  "run": "C:\\Users\\qth02\\Desktop\\NNDL-Project\\runs\\poolab_ours_p10_s0",
+  "checkpoint": "last.pt",
+  "group": "ours",
+  "config_hash": "3399564971c9",
+  "photo_val": 0.9866666666666667,
+  "photo_test": 1.0,
+  "art_painting_test": 0.68994140625,
+  "cartoon_test": 0.306740614334471,
+  "sketch_test": 0.37321792260692466,
+  "cross_domain_avg": 0.4566333143971319
+}

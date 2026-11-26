@@ -1,0 +1,12 @@
+{
+  "run": "C:\\Users\\qth02\\Desktop\\NNDL-Project\\runs\\epfix_adain_a1p0_b0p7_s3",
+  "checkpoint": "last.pt",
+  "group": "adain",
+  "config_hash": "3399564971c9",
+  "photo_val": 0.9933333333333333,
+  "photo_test": 0.9883040935672515,
+  "art_painting_test": 0.6982421875,
+  "cartoon_test": 0.40017064846416384,
+  "sketch_test": 0.5109470468431772,
+  "cross_domain_avg": 0.5364532942691137
+}
