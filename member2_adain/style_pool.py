@@ -46,7 +46,21 @@ class StylePool:
         return self.paths[index]
 
     def assign(self, count, styles_per_image, seed):
-        """Return a style list for each content image. The assignment depends only on seed and order."""
+        """Return a style list for each content image. The assignment depends only on seed and order.
+
+        The walk over the shuffled pool starts at the content image's own
+        index and takes consecutive entries, so the first style of an image
+        is the same one the single-style protocol pairs it with.  With
+        ``styles_per_image == 1`` this is the historical rule and is
+        unchanged; with more styles the extra ones extend the set, so the
+        multi-style assignment is a strict superset of the single-style one
+        and the two protocols train on a nested set of stylizations.
+
+        (The walk deliberately does *not* advance by ``styles_per_image``
+        per image.  That would make the first style of image *i* the pool
+        entry ``2*i``, which reshuffles the frozen pairing and would break
+        the nesting between the one-style and the two-style protocol.)
+        """
         if styles_per_image < 1:
             raise ValueError('styles_per_image must be positive')
         if styles_per_image > len(self.paths):
@@ -58,7 +72,7 @@ class StylePool:
         assigned = []
         pool_size = len(order)
         for index in range(count):
-            start = (index * styles_per_image) % pool_size
+            start = index % pool_size
             chosen = [self.paths[order[(start + offset) % pool_size]] for offset in range(styles_per_image)]
             assigned.append(chosen)
         return assigned

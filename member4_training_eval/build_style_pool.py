@@ -50,7 +50,19 @@ def main():
     parser.add_argument("--pairing-seed", type=int, default=42)
     parser.add_argument("--style-dir", type=Path, default=config.STYLE_POOL_IMAGES,
                         help="folder holding the external style images")
+    parser.add_argument("--styles-per-image", type=int, default=1,
+                        help="how many style references every original image is "
+                             "paired with.  The frozen protocol uses 1; the "
+                             "multi-style ablation uses 2, which doubles the "
+                             "number of generated rows and therefore also "
+                             "doubles the training set of every augmented "
+                             "group.  The pairing rule is the one member 2's "
+                             "generator uses, so the two arms of the ablation "
+                             "share exactly the same content-style pairs.")
     args = parser.parse_args()
+
+    if args.styles_per_image < 1:
+        raise SystemExit("--styles-per-image must be positive")
 
     style_dir = Path(args.style_dir)
     if not style_dir.is_dir():
@@ -104,21 +116,59 @@ def main():
     #    followed by a cyclic walk over it.  Reproducing it exactly here means
     #    the pairing recorded in the manifest is the pairing the generators
     #    will actually produce, so the fairness check compares like with like.
+    #
+    #    With more than one style per original the pairing is a *set* of
+    #    (original, style) pairs rather than a single original->style
+    #    mapping, because an original now carries several styles.
+    #
+    #    The k-th style of the i-th original is ``names[order[(i + k) % n]]``.
+    #    With styles_per_image == 1 this is exactly the frozen one-style rule,
+    #    so the frozen pool keeps its pairing and its hash.  With two styles
+    #    the first one is *still* the frozen pairing and the second one is the
+    #    next entry of the same cyclic walk, so the multi-style set is a
+    #    strict superset of the frozen one: every stylization the one-style
+    #    arm trains on is also in the two-style arm.  That is what makes the
+    #    two arms comparable -- the difference between them is the extra
+    #    style, not a reshuffled pairing.
     train_rows = config.read_split(config.SPLIT_FILES["photo_train"])
     order = list(range(len(candidates)))
     random.Random(args.pairing_seed).shuffle(order)
-    pairing = {
-        rel: names[order[i % len(order)]]
-        for i, (rel, _) in enumerate(train_rows)
-    }
+    if args.styles_per_image == 1:
+        pairing = {
+            rel: names[order[i % len(order)]]
+            for i, (rel, _) in enumerate(train_rows)
+        }
+        pair_sets = None
+    else:
+        if args.styles_per_image > len(order):
+            raise SystemExit(
+                f"--styles-per-image {args.styles_per_image} exceeds the style "
+                f"pool size {len(order)}")
+        pairing = {}
+        pair_sets = {}
+        for i, (rel, _) in enumerate(train_rows):
+            chosen = []
+            for offset in range(args.styles_per_image):
+                style = names[order[(i + offset) % len(order)]]
+                if style not in chosen:
+                    chosen.append(style)
+            pairing[rel] = chosen[0]
+            pair_sets[rel] = chosen
 
     out = {
         "pool": pool,
         "pairing": pairing,
     }
+    if pair_sets is not None:
+        # The full multi-style assignment travels with the manifest, so the
+        # generators and the fairness check read it instead of re-deriving it
+        # and possibly deriving something else.
+        out["pairing_multi"] = pair_sets
+        out["styles_per_image"] = args.styles_per_image
     config.STYLE_POOL_MANIFEST.write_text(json.dumps(out, indent=2), encoding="utf-8")
     print(f"style pool: {len(styles)} external styles (no PACS images), "
-          f"pairing over {len(pairing)} originals, alpha={args.alpha}")
+          f"pairing over {len(pairing)} originals, alpha={args.alpha}, "
+          f"styles_per_image={args.styles_per_image}")
     print(f"wrote {config.STYLE_POOL_MANIFEST} (pool_hash={pool['pool_hash']})")
 
 

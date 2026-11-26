@@ -174,8 +174,18 @@ def check(manifests, subset=False, pool_path=None):
                 problems.append(
                     f"content->style pairing differs between {reference_name} and {name}")
         if pool and subset is False:
-            recorded = json.loads(pool_path.read_text(encoding="utf-8")).get("pairing", {})
-            recorded_pairs = set(recorded.items())
+            outer = json.loads(pool_path.read_text(encoding="utf-8"))
+            # A multi-style pool records the full assignment in
+            # ``pairing_multi``; the single-style one only has the frozen
+            # mapping in ``pairing``.  The manifests are compared against
+            # whichever the active pool carries.
+            multi = outer.get("pairing_multi")
+            if multi is not None:
+                recorded_pairs = {(orig, style)
+                                  for orig, styles in multi.items()
+                                  for style in styles}
+            else:
+                recorded_pairs = set(outer.get("pairing", {}).items())
             if reference_pairing != recorded_pairs:
                 problems.append(
                     f"content->style pairing differs from the pairing of the "

@@ -112,7 +112,13 @@ def _locations(args, data_root, alpha, beta):
 
 def _output_files(root, job, diagnostics, with_baseline, with_matched=False):
     relative = Path(job.original)
-    name = f"{relative.stem}__{job.style}"
+    # The multi-style protocol generates several images per original, so the
+    # style index has to be part of the name.  The one-style protocol keeps
+    # its historical name, so the images already on disk stay valid.
+    if job.style_index:
+        name = f"{relative.stem}__{job.style_index:02d}_{job.style}"
+    else:
+        name = f"{relative.stem}__{job.style}"
     # Keep class subdirectories: identical stems in different classes cannot collide.
     result = {"ours": root / "images" / relative.parent / f"{name}.jpg"}
     if with_baseline:
@@ -197,7 +203,9 @@ def run(args):
                          else f"foreground-spatial-adain-v1/{args.foreground_kind}"),
               "mode": args.mode,
               "partial": len(jobs) != len(protocol.rows), "count": len(jobs),
-              "pool_hash": protocol.pool_hash, "inputs_sha256": input_hashes,
+              "pool_hash": protocol.pool_hash,
+              "styles_per_image": protocol.styles_per_image,
+              "inputs_sha256": input_hashes,
               "modulation": args.modulation,
               "foreground_kind": args.foreground_kind if args.modulation == "foreground" else None,
               "foreground": foreground.to_dict() if args.modulation == "foreground" else None,
@@ -257,7 +265,7 @@ def run(args):
         prepared = style_features = None
         for state in runs:
             files = _output_files(state.root, job, diagnostics, with_baseline, with_matched)
-            previous = state.outputs.get(job.original, {})
+            previous = state.outputs.get(job.key, {})
             recorded = previous.get("sha256", {})
             valid = bool(recorded) and all(path.is_file() and sha256(path) == recorded.get(key)
                                            for key, path in files.items())
@@ -287,7 +295,7 @@ def run(args):
                     baseline_measurement = metrics.compare(job.content_path, files["adain"])
                 if with_matched:
                     matched_measurement = metrics.compare(job.content_path, files["adain_matched"])
-            state.outputs[job.original] = {
+            state.outputs[job.key] = {
                 "files": {key: _relative(path, protocol.data_root) for key, path in files.items()},
                 "sha256": {key: sha256(path) for key, path in files.items()},
                 "metrics": measurement, "adain_metrics": baseline_measurement,
@@ -295,13 +303,13 @@ def run(args):
                 "matched_alpha": result.matched_alpha}
             state.save()
             generated += 1
-        print(f"[{index}/{len(jobs)}] {job.original}", flush=True)
+        print(f"[{index}/{len(jobs)}] {job.original} [{job.style_index}]", flush=True)
     summaries = []
     for state in runs:
         ours_lines, adain_lines, matched_lines = [], [], []
         dataset_lines, pair_lines = [], []
         for job in jobs:
-            entry = state.outputs[job.original]
+            entry = state.outputs[job.key]
             provenance = f"{job.label} {job.original} {job.style} {state.alpha}"
             ours_lines.append(f"{entry['files']['ours']} {provenance} {state.beta}")
             image_path = protocol.data_root / entry["files"]["ours"]

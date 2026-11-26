@@ -34,6 +34,20 @@ class GenerationJob:
     style: str
     content_path: Path
     style_path: Path
+    #: Which of the styles of this original this job is.  It is 0 for the
+    #: frozen one-style protocol and 0..k-1 for the multi-style one.
+    style_index: int = 0
+
+    @property
+    def key(self) -> str:
+        """A key that is unique per (original, style) pair.
+
+        The one-style protocol can key its outputs by the original alone,
+        but the multi-style protocol generates several images per original,
+        so the outputs have to be keyed by the pair.  ``key`` is that key in
+        both cases, so the recording code does not need a branch.
+        """
+        return f"{self.original}#{self.style_index}"
 
 
 class FrozenProtocol:
@@ -62,6 +76,31 @@ class FrozenProtocol:
             if sha256(path) != meta["sha256"]:
                 raise ValueError(f"style image hash mismatch: {name}")
             self.styles[name] = path
+        # The multi-style protocol stores the full content->style assignment
+        # next to the manifest, because an original that carries several
+        # styles cannot be described by a single mapping.  When it is absent
+        # the pool is the frozen one-style pool and the assignment is the
+        # frozen mapping.
+        multi = self.manifest.get("pairing_multi")
+        self.styles_per_image = int(self.manifest.get("styles_per_image", 1))
+        if multi is None:
+            if self.styles_per_image != 1:
+                raise ValueError(
+                    "the manifest declares a multi-style protocol but carries no "
+                    "pairing_multi assignment")
+            self.pairings: dict[str, list[str]] = {}
+        else:
+            if self.styles_per_image < 2:
+                raise ValueError("pairing_multi is present but styles_per_image is not")
+            self.pairings = {rel: list(styles) for rel, styles in multi.items()}
+            for rel, styles in self.pairings.items():
+                if len(styles) != self.styles_per_image:
+                    raise ValueError(
+                        f"original {rel} carries {len(styles)} styles, expected "
+                        f"{self.styles_per_image}")
+                unknown = set(styles) - set(self.styles)
+                if unknown:
+                    raise ValueError(f"unknown frozen style: {sorted(unknown)}")
         rows = config.read_split(self.split_file)
         self.rows = rows
         originals = [rel for rel, _ in rows]
@@ -89,11 +128,21 @@ class FrozenProtocol:
         for rel, label in rows:
             if not 0 <= label < len(config.CLASSES) or Path(rel).parts[:2] != ("photo", config.CLASSES[label]):
                 raise ValueError(f"invalid Photo training row: {rel} {label}")
-            style = self.manifest["pairing"][rel]
-            if style not in self.styles:
-                raise ValueError(f"unknown frozen style: {style}")
             path = contained(self.image_root, rel)
             if not path.is_file():
                 raise FileNotFoundError(f"missing Photo Training image: {path}; set NNDL_DATA_ROOT or --data-root")
-            jobs.append(GenerationJob(rel, label + 1, style, path, self.styles[style]))
+            # The multi-style protocol assigns several styles to the same
+            # original, and each of them becomes its own job.  The one-style
+            # protocol assigns one, and produces one job per original.
+            styles = self.pairings.get(rel)
+            if styles is None:
+                style = self.manifest["pairing"][rel]
+                if style not in self.styles:
+                    raise ValueError(f"unknown frozen style: {style}")
+                styles = [style]
+            for style_index, style in enumerate(styles):
+                if style not in self.styles:
+                    raise ValueError(f"unknown frozen style: {style}")
+                jobs.append(GenerationJob(rel, label + 1, style, path,
+                                          self.styles[style], style_index))
         return jobs
