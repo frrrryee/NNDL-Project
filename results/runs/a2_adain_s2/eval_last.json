@@ -1,0 +1,12 @@
+{
+  "run": "C:\\Users\\qth02\\Desktop\\NNDL-Project\\runs\\a2_adain_s2",
+  "checkpoint": "last.pt",
+  "group": "adain",
+  "config_hash": "e177d5ed370d",
+  "photo_val": 0.9866666666666667,
+  "photo_test": 0.9824561403508771,
+  "art_painting_test": 0.681640625,
+  "cartoon_test": 0.31612627986348124,
+  "sketch_test": 0.35030549898167007,
+  "cross_domain_avg": 0.44935746794838377
+}
