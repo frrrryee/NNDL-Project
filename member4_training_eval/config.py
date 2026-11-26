@@ -299,7 +299,7 @@ MIXSTYLE_GROUP = "mixstyle"
 # summary.  It must agree with CHECKPOINT: "last" means the final checkpoint
 # of the fixed step budget, with no validation-based selection.
 CHECKPOINT_SELECTION = "final checkpoint of the fixed step budget"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = os.environ.get("NNDL_DEVICE") or ("cuda" if torch.cuda.is_available() else "cpu")
 
 # ------------------------------------------------------------------ aug ----
 # One stylized image per original training image, for both augmented groups.

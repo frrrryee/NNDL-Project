@@ -1,0 +1,143 @@
+{
+  "group": "adain",
+  "seed": 4,
+  "tag": "poolab_adain_p20_s4",
+  "train_images": 2698,
+  "aug_manifest": "C:\\Users\\qth02\\Desktop\\nndl_pacs\\data\\aug_sp\\poolab_p20\\manifest_adain.txt",
+  "config_hash": "3399564971c9",
+  "training_config": {
+    "batch_size": 64,
+    "total_steps": 1290,
+    "lr": 0.01,
+    "momentum": 0.9,
+    "weight_decay": 0.0005,
+    "label_smoothing": 0.1,
+    "eval_every": 60,
+    "checkpoint": "last",
+    "train_transform": "Compose(\n    RandomResizedCrop(size=(224, 224), scale=(0.7, 1.0), ratio=(0.75, 1.3333), interpolation=bilinear, antialias=True)\n    RandomHorizontalFlip(p=0.5)\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+    "eval_transform": "Compose(\n    Resize(size=256, interpolation=bilinear, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+    "arch": "resnet18",
+    "pretrained": "imagenet",
+    "checkpoint_selection": "final checkpoint of the fixed step budget",
+    "subset_size": 0
+  },
+  "best_val_acc": 0.9933333333333333,
+  "best_step": 780,
+  "reported_val_acc": 0.9933333333333333,
+  "reported_step": 1290,
+  "total_steps": 1290,
+  "subset_size": 0,
+  "wall_time_sec": 332.1,
+  "history": [
+    {
+      "step": 60,
+      "loss": 0.5614099502563477,
+      "val_acc": 0.9666666666666667
+    },
+    {
+      "step": 120,
+      "loss": 0.4925868511199951,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 180,
+      "loss": 0.48673829436302185,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 240,
+      "loss": 0.49479353427886963,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 300,
+      "loss": 0.47003817558288574,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 360,
+      "loss": 0.46804356575012207,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 420,
+      "loss": 0.46568363904953003,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 480,
+      "loss": 0.4683903157711029,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 540,
+      "loss": 0.4682662785053253,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 600,
+      "loss": 0.45895132422447205,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 660,
+      "loss": 0.4574592709541321,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 720,
+      "loss": 0.4662730097770691,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 780,
+      "loss": 0.4663354456424713,
+      "val_acc": 0.9933333333333333
+    },
+    {
+      "step": 840,
+      "loss": 0.46846503019332886,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 900,
+      "loss": 0.4853394031524658,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 960,
+      "loss": 0.45853695273399353,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 1020,
+      "loss": 0.46326103806495667,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 1080,
+      "loss": 0.4575602412223816,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 1140,
+      "loss": 0.45680904388427734,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 1200,
+      "loss": 0.4567912518978119,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 1260,
+      "loss": 0.45799440145492554,
+      "val_acc": 0.9866666666666667
+    },
+    {
+      "step": 1290,
+      "loss": 0.48667728900909424,
+      "val_acc": 0.9866666666666667
+    }
+  ]
+}

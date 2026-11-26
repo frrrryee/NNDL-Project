@@ -1,0 +1,12 @@
+{
+  "run": "C:\\Users\\qth02\\Desktop\\NNDL-Project\\runs\\poolab_adain_p10_s1",
+  "checkpoint": "last.pt",
+  "group": "adain",
+  "config_hash": "3399564971c9",
+  "photo_val": 0.9733333333333334,
+  "photo_test": 0.9941520467836257,
+  "art_painting_test": 0.673828125,
+  "cartoon_test": 0.2764505119453925,
+  "sketch_test": 0.355142566191446,
+  "cross_domain_avg": 0.4351404010456128
+}

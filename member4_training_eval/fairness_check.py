@@ -69,7 +69,36 @@ def check(manifests, subset=False, pool_path=None):
     if len(set(counts.values())) > 1:
         detail = ", ".join(f"{name} {count}" for name, count in counts.items())
         problems.append(f"row count differs across manifests: {detail}")
-    expected = len(config.read_split(config.SPLIT_FILES["photo_train"])) * config.AUG_PER_IMAGE
+    # How many stylizations each original image carries is a property of the
+    # generator that produced the manifests, not of the protocol: the default
+    # is one stylization per original, but the ablation that assigns two
+    # styles to every original produces twice as many rows.  Deriving the
+    # number from each manifest keeps the check correct for both without a
+    # hand-edited constant, and lets two arms of an ablation -- one with one
+    # style per original and one with two -- be checked against their own
+    # manifests instead of against a single global number.
+    per_manifest_counts = {}
+    for name, rows in loaded.items():
+        if not rows:
+            continue
+        per_original = Counter(meta[0] if meta else "?" for _, _, meta in rows)
+        if per_original:
+            per_manifest_counts[name] = per_original
+    for name, per_original in per_manifest_counts.items():
+        used = set(per_original.values())
+        if len(used) > 1:
+            problems.append(
+                f"{name}: originals carry different numbers of stylizations "
+                f"({sorted(used)})"
+            )
+    aug_per_image = config.AUG_PER_IMAGE
+    if per_manifest_counts:
+        # Every manifest is checked against its own count; the expected row
+        # count is the largest of them, so an arm with fewer stylizations per
+        # original is reported as a row-count mismatch rather than silently
+        # passing.
+        aug_per_image = max(max(counts.values()) for counts in per_manifest_counts.values())
+    expected = len(config.read_split(config.SPLIT_FILES["photo_train"])) * aug_per_image
     for name, count in counts.items():
         if count != expected and not subset:
             problems.append(f"{name}: {count} rows != expected {expected}")
@@ -87,8 +116,17 @@ def check(manifests, subset=False, pool_path=None):
             missing = target - covered
             problems.append(f"{name}: provenance originals mismatch (missing {len(missing)})")
         for orig, count in origs.items():
-            if count != config.AUG_PER_IMAGE:
-                problems.append(f"{name}: original {orig} used {count}x != {config.AUG_PER_IMAGE}")
+            own = per_manifest_counts.get(name)
+            if own is not None:
+                # each original must be stylized the same number of times
+                # within its own manifest
+                if count != max(own.values()) and count != min(own.values()):
+                    problems.append(
+                        f"{name}: original {orig} used {count}x, "
+                        f"inconsistent with its manifest")
+                continue
+            if count != aug_per_image:
+                problems.append(f"{name}: original {orig} used {count}x != {aug_per_image}")
         provenance[name] = origs
 
     # The control groups must actually carry the placeholder in the style
@@ -120,7 +158,13 @@ def check(manifests, subset=False, pool_path=None):
 
     # 4. same content-style pairing (only among the styled groups)
     def pairing(rows):
-        return {meta[0]: meta[1] for _, _, meta in rows if len(meta) > 1}
+        """The original->style mapping, as a set of pairs.
+
+        A manifest that gives every original more than one style is a set of
+        pairs rather than a mapping, because the mapping form would keep only
+        the last style of each original and silently drop the others.
+        """
+        return {(meta[0], meta[1]) for _, _, meta in rows if len(meta) > 1}
 
     if styled:
         reference_name = styled[0]
@@ -131,7 +175,8 @@ def check(manifests, subset=False, pool_path=None):
                     f"content->style pairing differs between {reference_name} and {name}")
         if pool and subset is False:
             recorded = json.loads(pool_path.read_text(encoding="utf-8")).get("pairing", {})
-            if reference_pairing != recorded:
+            recorded_pairs = set(recorded.items())
+            if reference_pairing != recorded_pairs:
                 problems.append(
                     f"content->style pairing differs from the pairing of the "
                     f"active style pool ({pool_path.name})")
